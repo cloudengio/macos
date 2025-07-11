@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+    <dict>
+        <key>CFBundleIdentifier</key>
+        <string>io.cloudeng.KeychainHelper</string>
+        <key>CFBundleExecutable</key>
+        <string>KeychainHelperService</string>
+        <key>CFBundlePackageType</key>
+        <string>XPC!</string>
+        <key>XPCService</key>
+        <dict>
+            <!--  <key>ServiceName</key>
+            <string>io.cloudeng.KeychainHelper.xpc</string>-->
+            <key>ServiceType</key>
+            <string>Application</string>
+            <key>_ProcessType</key>
+            <string>Adaptive</string>
+        </dict>
+    </dict>
+</plist>
