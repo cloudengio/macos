@@ -83,6 +83,7 @@ icp "${XPC_SERVICE_PLIST}" "${XPC_SERVICE_CONTENTS_PATH}/Info.plist"
 icp "${BUILD_SERVICE_EXECUTABLE}" "${XPC_SERVICE_CONTENTS_PATH}/MacOS/${SERVICE_EXECUTABLE}"
 
 icp "${PROVISIONING_PROFILE}" "${CONTENTS_PATH}/embedded.provisionprofile"
+icp "${PROVISIONING_PROFILE}" "${XPC_SERVICE_CONTENTS_PATH}/embedded.provisionprofile"
 icp "${PROVISIONING_PROFILE}"  "${XPC_MACHPORT_CONTENTS_PATH}/embedded.provisionprofile"
 
 TMP_APP_ICON_PLIST="$(mktemp /tmp/appicon.plist.XXXXXX)"

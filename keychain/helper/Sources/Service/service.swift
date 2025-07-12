@@ -28,6 +28,7 @@ class KeychainXPC: NSObject, KeychainXPCProtocol {
             kSecAttrAccount: account,
             kSecAttrService: service,
             kSecAttrLabel: label,
+            kSecAttrSynchronizable: kSecAttrSynchronizableAny,
             kSecReturnData: true,
             kSecMatchLimit: kSecMatchLimitOne,
         ]
