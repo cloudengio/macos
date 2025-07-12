@@ -7,10 +7,10 @@
         <true/>
         <key>com.apple.security.personal-information.keychain</key>
         <true/>
-        <!-- key>keychain-access-groups</key>
+        <!--<key>keychain-access-groups</key>
         <array>
             <string>$(AppIdentifierPrefix)io.cloudeng.KeychainHelper</string>
-        </array> -->
+        </array>-->
         <key>com.apple.security.get-task-allow</key>
         <true/>
     </dict>

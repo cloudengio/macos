@@ -53,7 +53,6 @@ BUILD_SERVICE_EXECUTABLE="${BUILD_ROOT}/keychainHelperService"
 
 
 APP_INFO_PLIST="plists/Info.plist"
-APP_ICON_PLIST="plists/AppIcon.plist"
 XPC_SERVICE_PLIST="plists/XPCServiceInfo.plist"
 XPC_MACHPORT_PLIST="plists/MachPortServiceInfo.plist"
 
@@ -83,15 +82,17 @@ icp "${BUILD_CLIENT_EXECUTABLE}" "${CONTENTS_PATH}/MacOS/${KEYCHAIN_CLIENT_EXECU
 icp "${XPC_SERVICE_PLIST}" "${XPC_SERVICE_CONTENTS_PATH}/Info.plist"
 icp "${BUILD_SERVICE_EXECUTABLE}" "${XPC_SERVICE_CONTENTS_PATH}/MacOS/${SERVICE_EXECUTABLE}"
 
-#icp "${PROVISIONING_PROFILE}" "${CONTENTS_PATH}/embedded.provisionprofile"
-#icp "${PROVISIONING_PROFILE}"  "${XPC_MACHPORT_CONTENTS_PATH}/embedded.provisionprofile"
+icp "${PROVISIONING_PROFILE}" "${CONTENTS_PATH}/embedded.provisionprofile"
+icp "${PROVISIONING_PROFILE}"  "${XPC_MACHPORT_CONTENTS_PATH}/embedded.provisionprofile"
+
+TMP_APP_ICON_PLIST="$(mktemp /tmp/appicon.plist.XXXXXX)"
 
 actool --compile "${RESOURCES_PATH}"  \
-    --output-partial-info-plist "${APP_ICON_PLIST}" \
+    --output-partial-info-plist "${TMP_APP_ICON_PLIST}" \
     --platform macosx --minimum-deployment-target 15 \
     --app-icon AppIcon Assets.xcassets
 
-/usr/libexec/PlistBuddy -c "Merge AppIcon.plist" "${CONTENTS_PATH}/Info.plist"
+/usr/libexec/PlistBuddy -c "Merge ${TMP_APP_ICON_PLIST}" "${CONTENTS_PATH}/Info.plist"
 
 # -- Assemble XPC Service Bundle with mach port support ---
 echo "Assembling launchd/XPC bundle..."
