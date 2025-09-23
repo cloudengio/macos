@@ -1,0 +1,173 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"launch": {
+		"configurations": [
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/shim",
+				"name": "Debug keychain-shim (macos/keychain/shim)",
+				"program": "${workspaceFolder:macos}/keychain/shim/.build/debug/keychain-shim",
+				"preLaunchTask": "swift: Build Debug keychain-shim (macos/keychain/shim)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/shim",
+				"name": "Release keychain-shim (macos/keychain/shim)",
+				"program": "${workspaceFolder:macos}/keychain/shim/.build/release/keychain-shim",
+				"preLaunchTask": "swift: Build Release keychain-shim (macos/keychain/shim)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Debug helper (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/debug/helper",
+				"preLaunchTask": "swift: Build Debug helper (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Release helper (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/release/helper",
+				"preLaunchTask": "swift: Build Release helper (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Debug keychainHelper (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/debug/keychainHelper",
+				"preLaunchTask": "swift: Build Debug keychainHelper (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Release keychainHelper (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/release/keychainHelper",
+				"preLaunchTask": "swift: Build Release keychainHelper (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Debug keychainHelperService (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/debug/keychainHelperService",
+				"preLaunchTask": "swift: Build Debug keychainHelperService (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Release keychainHelperService (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/release/keychainHelperService",
+				"preLaunchTask": "swift: Build Release keychainHelperService (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Debug KeychainHelperProtocol (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/debug/KeychainHelperProtocol",
+				"preLaunchTask": "swift: Build Debug KeychainHelperProtocol (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Release KeychainHelperProtocol (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/release/KeychainHelperProtocol",
+				"preLaunchTask": "swift: Build Release KeychainHelperProtocol (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Debug keychainHelperClient (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/debug/keychainHelperClient",
+				"preLaunchTask": "swift: Build Debug keychainHelperClient (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Release keychainHelperClient (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/release/keychainHelperClient",
+				"preLaunchTask": "swift: Build Release keychainHelperClient (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Debug keychainHelperMachService (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/debug/keychainHelperMachService",
+				"preLaunchTask": "swift: Build Debug keychainHelperMachService (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Release keychainHelperMachService (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/release/keychainHelperMachService",
+				"preLaunchTask": "swift: Build Release keychainHelperMachService (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Debug keychainHelperMachPortService (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/debug/keychainHelperMachPortService",
+				"preLaunchTask": "swift: Build Debug keychainHelperMachPortService (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Release keychainHelperMachPortService (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/release/keychainHelperMachPortService",
+				"preLaunchTask": "swift: Build Release keychainHelperMachPortService (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Debug KeychainMachPortHelper (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/debug/KeychainMachPortHelper",
+				"preLaunchTask": "swift: Build Debug KeychainMachPortHelper (macos/keychain/helper)"
+			},
+			{
+				"type": "swift",
+				"request": "launch",
+				"args": [],
+				"cwd": "${workspaceFolder:macos}/keychain/helper",
+				"name": "Release KeychainMachPortHelper (macos/keychain/helper)",
+				"program": "${workspaceFolder:macos}/keychain/helper/.build/release/KeychainMachPortHelper",
+				"preLaunchTask": "swift: Build Release KeychainMachPortHelper (macos/keychain/helper)"
+			}
+		]
+	}
+}
