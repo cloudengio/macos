@@ -10,9 +10,10 @@ import (
 	"path/filepath"
 )
 
-type HasSuffix string
+type Suffix string
 
-func (s HasSuffix) Check(path string) Step {
+// Assert returns a Step that checks if the provided path has the specified suffix.
+func (s Suffix) Assert(path string) Step {
 	p := string(path)
 	return StepFunc(func(_ context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		cmd := fmt.Sprintf("filepath.Ext(%q) == %q", p, s)

@@ -162,20 +162,6 @@ provided io.Writer.
 
 
 
-### Type HasSuffix
-```go
-type HasSuffix string
-```
-
-### Methods
-
-```go
-func (s HasSuffix) Check(path string) Step
-```
-
-
-
-
 ### Type IconSet
 ```go
 type IconSet struct {
@@ -349,6 +335,8 @@ IsValidIsValidIconSetDir returns a Step that checks if the directory has a
 ```go
 func MkdirAll(d string) Step
 ```
+MkdirAll returns a Step that creates a directory and all necessary parents
+using mkdir -p.
 
 
 ```go
@@ -457,6 +445,22 @@ Run executes all added steps in sequence and returns a RunResult.
 type StepRunnerOption func(o *stepRunnerOptions)
 ```
 StepRunnerOption configures a StepRunner.
+
+
+### Type Suffix
+```go
+type Suffix string
+```
+
+### Methods
+
+```go
+func (s Suffix) Assert(path string) Step
+```
+Assert returns a Step that checks if the provided path has the specified
+suffix.
+
+
 
 
 ### Type XPCInfoPlist

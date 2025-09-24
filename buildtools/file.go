@@ -41,7 +41,7 @@ type IconSetDir string
 func IsValidIconSetDir(id IconSetDir) Step {
 	p := string(id)
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
-		return HasSuffix(".iconset").Check(p).Run(ctx, cmdRunner)
+		return Suffix(".iconset").Assert(p).Run(ctx, cmdRunner)
 	})
 }
 

@@ -22,7 +22,7 @@ func Example_createAppBundle() {
 	if err != nil {
 		log.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tempDir)
+	defer os.RemoveAll(tempDir) //nolint:errcheck
 
 	// Create a test executable (just a placeholder file for the example)
 	exeContent := []byte("#!/bin/bash\necho 'Hello from Example App'")

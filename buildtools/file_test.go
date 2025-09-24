@@ -15,11 +15,7 @@ import (
 
 func TestFileOperations(t *testing.T) {
 	// Create a temporary directory for our test
-	tempDir, err := os.MkdirTemp("", "file_operations_test_*")
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	// Create a command runner for executing steps
 	runner := buildtools.NewCommandRunner()

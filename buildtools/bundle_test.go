@@ -15,11 +15,7 @@ import (
 
 func TestAppBundle(t *testing.T) {
 	// Create a temporary directory for our test
-	tempDir, err := os.MkdirTemp("", "appbundle_test_*")
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	// Define a simple app bundle
 	bundle := buildtools.AppBundle{
@@ -76,8 +72,7 @@ func TestAppBundle(t *testing.T) {
 
 	// Copy the file into the bundle's Resources directory
 	copyStep := bundle.CopyContents(testFile, "Resources", "test.txt")
-	_, err = copyStep.Run(ctx, runner)
-	if err != nil {
+	if _, err := copyStep.Run(ctx, runner); err != nil {
 		t.Fatalf("copy step failed: %v", err)
 	}
 
