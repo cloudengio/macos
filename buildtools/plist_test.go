@@ -7,6 +7,7 @@ package buildtools_test
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"cloudeng.io/macos/buildtools"
@@ -51,28 +52,10 @@ func TestInfoPlist(t *testing.T) {
 	}
 
 	for _, e := range expected {
-		if !contains(str, e) {
+		if !strings.Contains(str, e) {
 			t.Errorf("expected marshaled data to contain %q but it doesn't", e)
 		}
 	}
-}
-
-// Helper function to check if a string contains a substring
-func contains(s, substr string) bool {
-	// Standard library's strings.Contains is better for this purpose in real code
-	for i := 0; i <= len(s)-len(substr); i++ {
-		found := true
-		for j := 0; j < len(substr); j++ {
-			if s[i+j] != substr[j] {
-				found = false
-				break
-			}
-		}
-		if found {
-			return true
-		}
-	}
-	return false
 }
 
 func TestStepExecution(t *testing.T) {

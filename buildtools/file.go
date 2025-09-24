@@ -45,7 +45,7 @@ func IsValidIconSetDir(id IconSetDir) Step {
 	})
 }
 
-// Rename retrurns a Step that renames a file using mv.
+// Rename returns a Step that renames a file using mv.
 func Rename(oldname, newname string) Step {
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		return cmdRunner.Run(ctx, "mv", string(oldname), newname)

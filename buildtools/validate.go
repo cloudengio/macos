@@ -21,7 +21,8 @@ func (s Suffix) Assert(path string) Step {
 			return NewStepResult(cmd, nil, nil, nil), nil
 		}
 		if filepath.Ext(p) != string(s) {
-			return NewStepResult(cmd, nil, nil, fmt.Errorf("filepath.Ext(%q) != %q", p, s)), nil
+			err := fmt.Errorf("filepath.Ext(%q) != %q", p, s)
+			return NewStepResult(cmd, nil, nil, err), err
 		}
 		return NewStepResult(cmd, nil, nil, nil), nil
 	})

@@ -51,7 +51,7 @@ func (b AppBundle) SignContents(signer Signer, dst ...string) Step {
 // Contents returns the path to the specified element within the app bundle's
 // Contents directory.
 func (b AppBundle) Contents(elem ...string) string {
-	return filepath.Join(append([]string{b.Path, "Contents"}, elem...)...)
+	return filepath.Join(b.Path, "Contents", filepath.Join(elem...))
 }
 
 func (b AppBundle) CopyIcons(src string) Step {

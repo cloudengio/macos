@@ -1,7 +1,5 @@
 .PHONY: build test pr
 
-SUBMODULES = $(wildcard */)
-
 build:
 	multimod build
 

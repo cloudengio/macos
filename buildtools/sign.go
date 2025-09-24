@@ -26,9 +26,9 @@ func (s Signer) SignPath(path string) Step {
 		return ErrorStep(fmt.Errorf("cannot sign path %q: no identity specified", path), "codesign")
 	}
 	if s.EntitlementsFile != "" {
-		args = append(args, "--entitlements", string(s.EntitlementsFile))
+		args = append(args, "--entitlements", s.EntitlementsFile)
 	}
-	args = append(args, string(path))
+	args = append(args, path)
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		return cmdRunner.Run(ctx, "codesign", args...)
 	})

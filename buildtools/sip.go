@@ -20,7 +20,7 @@ func (j AsPNG) Convert() Step {
 		return Copy(j.InputPath, j.OutputPath)
 	}
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
-		return cmdRunner.Run(ctx, "sips", "-s", "format", "png", string(j.InputPath), "--out", j.OutputPath)
+		return cmdRunner.Run(ctx, "sips", "-s", "format", "png", j.InputPath, "--out", j.OutputPath)
 	})
 }
 
@@ -43,7 +43,7 @@ func (i iconStep) Run(ctx context.Context, cmdRunner *CommandRunner) (StepResult
 	} else {
 		name += ".png"
 	}
-	outPath := filepath.Join(string(i.IconSetDir), name)
+	outPath := filepath.Join(i.IconSetDir, name)
 	return cmdRunner.Run(ctx, "sips", "-z", strconv.Itoa(i.size), strconv.Itoa(i.size), i.Icon, "--out", outPath)
 }
 

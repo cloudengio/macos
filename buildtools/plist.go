@@ -46,6 +46,6 @@ func writeInfoPlist(path string, info InfoPlist) Step {
 			return NewStepResult("write Info.plist", []string{path}, nil, err), err
 		}
 		err = os.WriteFile(path, data, 0644)
-		return NewStepResult("write Info.plist", []string{path}, nil, err), nil
+		return NewStepResult("write Info.plist", []string{path}, nil, err), err
 	})
 }

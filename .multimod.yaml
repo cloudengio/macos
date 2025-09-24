@@ -1,13 +1,4 @@
-test:
-  [
-    "go",
-    "test",
-    "-failfast",
-    "--covermode=atomic",
-    "--vet=off",
-    "-race",
-    "./...",
-  ]
+test: ["go", "test", "-failfast", "--covermode=atomic", "-race", "./..."]
 lint: ["golangci-lint", "run", "./..."]
 govuln: ["govulncheck", "./..."]
 generate: ["go", "generate", "./..."]

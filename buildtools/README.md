@@ -347,7 +347,7 @@ func NoopStep() Step
 ```go
 func Rename(oldname, newname string) Step
 ```
-Rename retrurns a Step that renames a file using mv.
+Rename returns a Step that renames a file using mv.
 
 
 ```go
