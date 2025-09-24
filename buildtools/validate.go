@@ -19,8 +19,8 @@ func (s HasSuffix) Check(path string) Step {
 		if cmdRunner.DryRun() {
 			return NewStepResult(cmd, nil, nil, nil), nil
 		}
-		if filepath.Ext(p) != ".iconset" {
-			return NewStepResult(cmd, nil, nil, fmt.Errorf("icon set dir %q must have .iconset extension", p)), nil
+		if filepath.Ext(p) != string(s) {
+			return NewStepResult(cmd, nil, nil, fmt.Errorf("filepath.Ext(%q) != %q", p, s)), nil
 		}
 		return NewStepResult(cmd, nil, nil, nil), nil
 	})

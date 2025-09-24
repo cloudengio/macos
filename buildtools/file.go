@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// MkdirAll returns a Step that creates a directory and all necessary parents using mkdir -p.
 func MkdirAll(d string) Step {
 	if d == "" {
 		return ErrorStep(fmt.Errorf("cannot create directory with empty name"), "mkdir", "-p")
@@ -33,51 +34,21 @@ func FileExists(f string) Step {
 	})
 }
 
-/*
-// InputFile represents an input file.
-type InputFile string
-
-// Exists returns a Step that checks for the existence of the file.
-func (f InputFile) Exists() Step {
-	return StepFunc(func(_ context.Context, cmdRunner *CommandRunner) (StepResult, error) {
-		return cmdRunner.Run(context.Background(), "test", "-f", string(f))
-	})
-}
-
-// Dir returns the directory containing the file.
-func (f InputFile) Dir() Dir {
-	return Dir(filepath.Dir(string(f)))
-}
-
-// OutputFile represents an output file.
-type OutputFile string
-
-// Dir returns the directory containing the file.
-func (f OutputFile) Dir() Dir {
-	return Dir(filepath.Dir(string(f)))
-}*/
-
 // IconSetDir represents a directory for an icon set.
 type IconSetDir string
 
 // IsValidIsValidIconSetDir returns a Step that checks if the directory has a .iconset extension.
 func IsValidIconSetDir(id IconSetDir) Step {
 	p := string(id)
-	return StepFunc(func(_ context.Context, cmdRunner *CommandRunner) (StepResult, error) {
-		return HasSuffix(".iconset").Check(p).Run(context.Background(), cmdRunner)
+	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+		return HasSuffix(".iconset").Check(p).Run(ctx, cmdRunner)
 	})
 }
 
-/*
-// Exists returns a Step that checks for the existence of the directory.
-func (id IconSetDir) Exists() Step {
-	return Dir(id).Exists()
-}*/
-
 // Rename retrurns a Step that renames a file using mv.
 func Rename(oldname, newname string) Step {
-	return StepFunc(func(_ context.Context, cmdRunner *CommandRunner) (StepResult, error) {
-		return cmdRunner.Run(context.Background(), "mv", string(oldname), newname)
+	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+		return cmdRunner.Run(ctx, "mv", string(oldname), newname)
 	})
 }
 
@@ -104,7 +75,7 @@ func SwiftBinDir(ctx context.Context, release bool) (string, error) {
 	}
 	r, err := runner.Run(ctx, "swift", args...)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
-	return strings.TrimSpace(r.Output()), err
+	return strings.TrimSpace(r.Output()), nil
 }

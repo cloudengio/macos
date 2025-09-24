@@ -43,25 +43,9 @@ func writeInfoPlist(path string, info InfoPlist) Step {
 		}
 		data, err := MarshalInfoPlist(info)
 		if err != nil {
-			return NewStepResult("write Info.plist", []string{path}, nil, err), nil
+			return NewStepResult("write Info.plist", []string{path}, nil, err), err
 		}
 		err = os.WriteFile(path, data, 0644)
 		return NewStepResult("write Info.plist", []string{path}, nil, err), nil
 	})
 }
-
-/*
-func writeXPCInfoPlist(path string, xpc XPCServiceInfoPlist) Step {
-	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
-		if cmdRunner.DryRun() {
-			return NewStepResult("write Info.plist to "+path, nil, nil, nil), nil
-		}
-		data, err := MarshalXPCServiceInfoPlist(xpc)
-		if err != nil {
-			return NewStepResult("write Info.plist to "+path, nil, nil, err), nil
-		}
-		err = os.WriteFile(path, data, 0644)
-		return NewStepResult("write Info.plist to "+path, nil, nil, err), nil
-	})
-}
-*/
