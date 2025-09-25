@@ -6,34 +6,85 @@ package buildtools
 
 import (
 	"context"
+	"fmt"
 	"os"
 
+	"gopkg.in/yaml.v3"
 	"howett.net/plist"
 )
 
-// InfoPlist captures the common fields for an app bundle's Info.plist.
+// InfoPlist represents the contents of a macOS Info.plist file.
+// The struct fields represent common keys found in such files
+// and are extracted from the Raw map for convenience and use
+// within this package.
 type InfoPlist struct {
-	Identifier   string       `plist:"CFBundleIdentifier,omitempty" yaml:"identifier"`
-	Name         string       `plist:"CFBundleName,omitempty" yaml:"name"`
-	Version      string       `plist:"CFBundleVersion,omitempty" yaml:"version"`
-	ShortVersion string       `plist:"CFBundleShortVersionString,omitempty" yaml:"short_version"`
-	Executable   string       `plist:"CFBundleExecutable,omitempty" yaml:"executable"`
-	IconSet      string       `plist:"CFBundleIconFile,omitempty" yaml:"icon_set"`
-	Type         string       `plist:"CFBundlePackageType"`
-	XPCService   XPCInfoPlist `plist:"XPCService,omitempty" yaml:"xpc_service"`
+	CFBundleIdentifier  string
+	CFBundleName        string
+	CFBundleExecutable  string
+	CFBundleIconFile    string
+	CFBundlePackageType string
+	XPCService          *XPCServicePlist
+	Raw                 map[string]any
 }
 
-// XPCInfoPlist represents the XPC service specific portion of the
-// XPC service info.plist.
-type XPCInfoPlist struct {
-	ServiceName      string   `plist:"ServiceName,omitempty" yaml:"service_name"`
-	ServiceType      string   `plist:"ServiceType,omitempty" yaml:"service_type"`
-	ProcessType      string   `plist:"ProcessType,omitempty" yaml:"process_type"`
-	ProgramArguments []string `plist:"ProgramArguments,omitempty" yaml:"args"`
+// XPCServicePlist represents the contents of an XPCService dictionary
+// within an Info.plist file.
+// The Raw field contains the full dictionary contents while the ServiceName
+// field is extracted for convenience.
+type XPCServicePlist struct {
+	ServiceName string
 }
 
-func MarshalInfoPlist(info InfoPlist) ([]byte, error) {
-	return plist.MarshalIndent(info, plist.XMLFormat, "\t")
+func asString(dict map[string]any, key string) (string, error) {
+	if v, ok := dict[key]; ok {
+		if s, ok := v.(string); ok {
+			return s, nil
+		}
+	}
+	return "", fmt.Errorf("key %q not found or not a string", key)
+}
+
+func (ipl *InfoPlist) UnmarshalYAML(node *yaml.Node) error {
+	if err := node.Decode(&ipl.Raw); err != nil {
+		return err
+	}
+	var err error
+	if ipl.CFBundleIdentifier, err = asString(ipl.Raw, "CFBundleIdentifier"); err != nil {
+		return err
+	}
+	if ipl.CFBundleName, err = asString(ipl.Raw, "CFBundleName"); err != nil {
+		return err
+	}
+	if ipl.CFBundleExecutable, err = asString(ipl.Raw, "CFBundleExecutable"); err != nil {
+		return err
+	}
+	if ipl.CFBundlePackageType, err = asString(ipl.Raw, "CFBundlePackageType"); err != nil {
+		return err
+	}
+	// optional
+	ipl.CFBundleIconFile, _ = asString(ipl.Raw, "CFBundleIconFile")
+
+	if v, ok := ipl.Raw["XPCService"]; ok {
+		vm, ok := v.(map[string]any)
+		if !ok {
+			return fmt.Errorf("XPCService not a dictionary")
+		}
+		xpc := &XPCServicePlist{}
+		xpc.ServiceName, err = asString(vm, "ServiceName")
+		if err != nil {
+			return err
+		}
+		ipl.XPCService = xpc
+	}
+	return nil
+}
+
+func (ipl InfoPlist) MarshalPlist() (any, error) {
+	return ipl.Raw, nil
+}
+
+func (ipl InfoPlist) MarshalYAML() (any, error) {
+	return ipl.Raw, nil
 }
 
 func writeInfoPlist(path string, info InfoPlist) Step {
@@ -41,7 +92,7 @@ func writeInfoPlist(path string, info InfoPlist) Step {
 		if cmdRunner.DryRun() {
 			return NewStepResult("write Info.plist", []string{path}, nil, nil), nil
 		}
-		data, err := MarshalInfoPlist(info)
+		data, err := plist.MarshalIndent(info, plist.XMLFormat, "\t")
 		if err != nil {
 			return NewStepResult("write Info.plist", []string{path}, nil, err), err
 		}

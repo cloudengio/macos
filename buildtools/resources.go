@@ -11,8 +11,6 @@ import (
 
 // Resources represents the resources needed to build an app bundle.
 type Resources struct {
-	Identity      string `yaml:"identity"` // Apple developer identity
-	Entitlements  string `yaml:"entitlements"`
 	Executable    string `yaml:"executable"`
 	XPCExecutable string `yaml:"xpc_executable"` // optional
 	Icon          string `yaml:"icon"`           // optional
@@ -55,11 +53,4 @@ func (r Resources) IconSetFile() string {
 
 func (r Resources) IconSetPath() string {
 	return filepath.Join(r.IconSetDir, r.IconSetFile())
-}
-
-func (r Resources) Signer() Signer {
-	return Signer{
-		Identity:         r.Identity,
-		EntitlementsFile: r.Entitlements,
-	}
 }

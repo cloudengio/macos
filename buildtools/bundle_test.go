@@ -11,23 +11,30 @@ import (
 	"testing"
 
 	"cloudeng.io/macos/buildtools"
+	"gopkg.in/yaml.v3"
 )
+
+const plistYAML = `
+CFBundleIdentifier: io.cloudeng.TestApp
+CFBundleName: TestApp
+CFBundleVersion: 1.0.0
+CFBundleShortVersionString: 1.0
+CFBundleExecutable: TestExecutable
+CFBundlePackageType: APPL
+`
 
 func TestAppBundle(t *testing.T) {
 	// Create a temporary directory for our test
 	tempDir := t.TempDir()
+	var info buildtools.InfoPlist
+	if err := yaml.Unmarshal([]byte(plistYAML), &info); err != nil {
+		t.Fatalf("failed to unmarshal info plist: %v", err)
+	}
 
 	// Define a simple app bundle
 	bundle := buildtools.AppBundle{
 		Path: filepath.Join(tempDir, "TestApp.app"),
-		Info: buildtools.InfoPlist{
-			Identifier:   "io.cloudeng.TestApp",
-			Name:         "TestApp",
-			Version:      "1.0.0",
-			ShortVersion: "1.0",
-			Executable:   "TestExecutable",
-			Type:         "APPL",
-		},
+		Info: info,
 	}
 
 	// Create a command runner for executing steps

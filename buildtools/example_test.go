@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"cloudeng.io/macos/buildtools"
+	"gopkg.in/yaml.v3"
 )
 
 // This example demonstrates how to create a basic macOS application bundle structure
@@ -31,18 +32,24 @@ func Example_createAppBundle() {
 		log.Fatalf("Failed to create example executable: %v", err)
 	}
 
+	plistYAML := `
+CFBundleIdentifier: io.cloudeng.TestApp
+CFBundleName: TestApp
+CFBundleVersion: 1.0.0
+CFBundleShortVersionString: 1.0
+CFBundleExecutable: TestExecutable
+CFBundlePackageType: APPL
+`
+
+	var info buildtools.InfoPlist
+	if err := yaml.Unmarshal([]byte(plistYAML), &info); err != nil {
+		log.Fatalf("failed to unmarshal info plist: %v", err)
+	}
+
 	// Define the app bundle with required Info.plist contents
 	bundle := buildtools.AppBundle{
 		Path: filepath.Join(tempDir, "ExampleApp.app"),
-		Info: buildtools.InfoPlist{
-			Identifier:   "io.cloudeng.ExampleApp",
-			Name:         "Example App",
-			Version:      "1.0.0",
-			ShortVersion: "1.0",
-			Executable:   "ExampleExecutable",
-			IconSet:      "AppIcon",
-			Type:         "APPL",
-		},
+		Info: info,
 	}
 	ctx := context.Background()
 
