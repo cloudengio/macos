@@ -58,7 +58,7 @@ func (s Signer) entitlementsFileFor(path string) (string, bool, error) {
 	if err != nil {
 		return "", false, err
 	}
-	defer tmpFile.Close()
+	defer tmpFile.Close() //nolint:errcheck
 	if _, err := tmpFile.Write(data); err != nil {
 		os.Remove(tmpFile.Name()) //nolint:errcheck
 		return "", false, err
