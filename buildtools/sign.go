@@ -60,23 +60,23 @@ func (s Signer) entitlementsFileFor(path string) (string, bool, error) {
 	}
 	defer tmpFile.Close()
 	if _, err := tmpFile.Write(data); err != nil {
+		os.Remove(tmpFile.Name()) //nolint:errcheck
 		return "", false, err
 	}
 	return tmpFile.Name(), true, nil
 }
 
+// SignPath returns a Step that signs the specified path within the
+// specified bundle. If path is empty, the bundle itself is signed.
 func (s Signer) SignPath(bundle, path string) Step {
 	if s.identity == "" {
-		return NoopStep()
+		return ErrorStep(fmt.Errorf("cannot sign path %q: no identity specified", path), "codesign")
 	}
 	args := []string{"--sign", s.identity}
 	if len(s.arguments) == 0 {
 		args = append(args, "--options", "runtime", "--force", "--timestamp")
 	} else {
 		args = append(args, s.arguments...)
-	}
-	if s.identity == "" {
-		return ErrorStep(fmt.Errorf("cannot sign path %q: no identity specified", path), "codesign")
 	}
 	entitlementsFile, ok, err := s.entitlementsFileFor(path)
 	if err != nil {
@@ -102,11 +102,10 @@ func (s Signer) SignPath(bundle, path string) Step {
 	})
 }
 
+// VerifyPath returns a Step that verifies the signature of the specified path within the
+// specified bundle. If path is empty, the bundle itself is verified.
 func (s Signer) VerifyPath(bundle, path string) Step {
-	if path == "" {
-		return NoopStep()
-	}
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
-		return cmdRunner.Run(ctx, "codesign", "--verify", "--strict", path)
+		return cmdRunner.Run(ctx, "codesign", "--verify", "--strict", filepath.Join(bundle, path))
 	})
 }

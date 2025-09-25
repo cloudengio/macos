@@ -54,11 +54,3 @@ func (r Resources) IconSetFile() string {
 func (r Resources) IconSetPath() string {
 	return filepath.Join(r.IconSetDir, r.IconSetFile())
 }
-
-/*
-func (r Resources) Signer() Signer {
-	return Signer{
-		Identity:         r.Identity,
-		EntitlementsFile: r.Entitlements,
-	}
-}*/

@@ -17,7 +17,7 @@ import (
 type CommonFlags struct {
 	DryRun     bool   `subcmd:"dry-run,false,'if set, execute the commands in dry-run mode'"`
 	Release    bool   `subcmd:"swift-release,false,'if set, use swift release build, otherwise debug'"`
-	BundlePath string `subcmd:"bundle-path,'','path for the output bundle, overrides any specified in a configf ile'"`
+	BundlePath string `subcmd:"bundle-path,'','path for the output bundle, overrides any specified in a config file'"`
 	Signer     string `subcmd:"signer,'','signing identity to use, overrides any specified in a config file'"`
 	ConfigFile string `subcmd:"config-file,'spec.yaml','path to the build specification yaml file'"`
 }
@@ -45,7 +45,7 @@ func (f CommonFlags) CommandRunnerOptions() []CommandRunnerOption {
 	if f.DryRun {
 		return []CommandRunnerOption{WithDryRun(f.DryRun)}
 	}
-	return []CommandRunnerOption{}
+	return nil
 }
 
 // Config represents common configuration options
