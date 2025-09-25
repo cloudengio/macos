@@ -45,7 +45,17 @@ func (b AppBundle) SignContents(signer Signer, dst ...string) Step {
 	if len(p) == 0 {
 		return ErrorStep(fmt.Errorf("destination (%q) not specified", dst), "codesign", "", p)
 	}
-	return signer.SignPath(filepath.Join(b.Path, "Contents", p))
+	return signer.SignPath(b.Path, filepath.Join("Contents", p))
+}
+
+// VerifyContents returns the step required to sign a file within the app bundle,
+// dst is relative to the bundle Contents root.
+func (b AppBundle) VerifyContents(signer Signer, dst ...string) Step {
+	p := filepath.Join(dst...)
+	if len(p) == 0 {
+		return ErrorStep(fmt.Errorf("destination (%q) not specified", dst), "codesign", "", p)
+	}
+	return signer.VerifyPath(b.Path, filepath.Join("Contents", p))
 }
 
 // Contents returns the path to the specified element within the app bundle's
@@ -55,26 +65,20 @@ func (b AppBundle) Contents(elem ...string) string {
 }
 
 func (b AppBundle) CopyIcons(src string) Step {
-	if len(b.Info.IconSet) == 0 {
+	if len(b.Info.CFBundleIconFile) == 0 {
 		return NoopStep()
 	}
-	dst := filepath.Join(b.Path, "Contents", "Resources", b.Info.IconSet)
+	dst := filepath.Join(b.Path, "Contents", "Resources", b.Info.CFBundleIconFile)
 	return Copy(src, dst)
 }
 
 func (b AppBundle) Sign(signer Signer) Step {
-	if signer.Identity == "" {
-		return NoopStep()
-	}
-	return signer.SignPath(b.Path)
+	return signer.SignPath(b.Path, "")
 }
 
 func (b AppBundle) VerifySignatures(signer Signer) []Step {
-	if signer.Identity == "" {
-		return []Step{NoopStep()}
-	}
 	steps := []Step{
-		signer.VerifyPath(b.Path),
+		signer.VerifyPath(b.Path, ""),
 	}
 	return steps
 }

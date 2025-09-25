@@ -11,28 +11,48 @@ import (
 	"testing"
 
 	"cloudeng.io/macos/buildtools"
+	"gopkg.in/yaml.v3"
+	"howett.net/plist"
 )
 
+const plistWithXPCYAML = `
+CFBundleIdentifier: io.cloudeng.TestApp
+CFBundleName: TestApp
+CFBundleVersion: 1.0.0
+CFBundleShortVersionString: 1.0
+CFBundleExecutable: TestExecutable
+CFBundleIconFile: AppIcon
+CFBundlePackageType: APPL
+SomethingNew: SomeValue
+XPCService:
+  ServiceName: io.cloudeng.TestService
+  ServiceType: Application
+  ProcessType: Interactive
+  ProgramArguments:
+    - TestExecutable
+    - --arg1
+`
+
 func TestInfoPlist(t *testing.T) {
-	info := buildtools.InfoPlist{
-		Identifier:   "io.cloudeng.TestApp",
-		Name:         "TestApp",
-		Version:      "1.0.0",
-		ShortVersion: "1.0",
-		Executable:   "TestExecutable",
-		IconSet:      "AppIcon",
-		Type:         "APPL",
-		XPCService: buildtools.XPCInfoPlist{
-			ServiceName: "io.cloudeng.TestService",
-			ServiceType: "Application",
-			ProcessType: "Interactive",
-			ProgramArguments: []string{
-				"TestExecutable", "--arg1", "--arg2",
-			},
-		},
+	var info buildtools.InfoPlist
+	if err := yaml.Unmarshal([]byte(plistWithXPCYAML), &info); err != nil {
+		t.Fatalf("unmarshal: %v", err)
 	}
 
-	data, err := buildtools.MarshalInfoPlist(info)
+	if got, want := info.CFBundleIdentifier, "io.cloudeng.TestApp"; got != want {
+		t.Fatalf("unexpected CFBundleIdentifier, got %q, want %q", got, want)
+	}
+	if got, want := info.CFBundleExecutable, "TestExecutable"; got != want {
+		t.Fatalf("unexpected CFBundleExecutable, got %q, want %q", got, want)
+	}
+	if got, want := info.CFBundleIconFile, "AppIcon"; got != want {
+		t.Fatalf("unexpected CFBundleIconFile, got %q, want %q", got, want)
+	}
+	if got, want := info.XPCService.ServiceName, "io.cloudeng.TestService"; got != want {
+		t.Fatalf("unexpected XPCService.ServiceName, got %q, want %q", got, want)
+	}
+
+	data, err := plist.MarshalIndent(info, plist.XMLFormat, "\t")
 	if err != nil {
 		t.Fatalf("failed to marshal info plist: %v", err)
 	}
@@ -49,8 +69,14 @@ func TestInfoPlist(t *testing.T) {
 		"<key>CFBundleName</key>",
 		"<string>TestApp</string>",
 		"<key>XPCService</key>",
+		"<key>ProcessType</key>",
+		"<string>Interactive</string>",
+		"<key>ProgramArguments</key>",
+		"<array>",
+		"<string>TestExecutable</string>",
+		"<string>--arg1</string>",
+		"</array>",
 	}
-
 	for _, e := range expected {
 		if !strings.Contains(str, e) {
 			t.Errorf("expected marshaled data to contain %q but it doesn't", e)
