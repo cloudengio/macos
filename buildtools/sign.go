@@ -58,9 +58,13 @@ func (s Signer) entitlementsFileFor(path string) (string, bool, error) {
 	if err != nil {
 		return "", false, err
 	}
-	defer tmpFile.Close() //nolint:errcheck
 	if _, err := tmpFile.Write(data); err != nil {
 		os.Remove(tmpFile.Name()) //nolint:errcheck
+		return "", false, err
+	}
+	name := tmpFile.Name()
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(name) //nolint:errcheck
 		return "", false, err
 	}
 	return tmpFile.Name(), true, nil
@@ -87,7 +91,9 @@ func (s Signer) SignPath(bundle, path string) Step {
 	}
 	args = append(args, filepath.Join(bundle, path))
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
-		defer os.Remove(entitlementsFile) //nolint:errcheck
+		if entitlementsFile != "" {
+			defer os.Remove(entitlementsFile) //nolint:errcheck
+		}
 		result, err := cmdRunner.Run(ctx, "codesign", args...)
 		if err != nil {
 			if entitlementsFile != "" {
