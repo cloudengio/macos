@@ -5,6 +5,7 @@
 package buildtools_test
 
 import (
+	"fmt"
 	"testing"
 
 	"gopkg.in/yaml.v3"
@@ -16,6 +17,18 @@ const plistPreamble = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 `
+
+func getEntitlements(pfe *buildtools.PerFileEntitlements, p string) ([]byte, error) {
+	ent, ok := pfe.For(p)
+	if !ok {
+		return nil, fmt.Errorf("no entitlements found for %q", p)
+	}
+	data, err := ent.MarshalIndent(" ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal: %v", err)
+	}
+	return data, nil
+}
 
 func TestEntitlements(t *testing.T) {
 	yamlData := `file1:
@@ -55,13 +68,9 @@ file2:
 	}
 
 	efor := func(p string) []byte {
-		ent, ok := pfe.For(p)
-		if !ok {
-			t.Fatalf("no entitlements found for %q", p)
-		}
-		data, err := ent.MarshalIndent(" ")
+		data, err := getEntitlements(&pfe, p)
 		if err != nil {
-			t.Fatalf("marshal: %v", err)
+			t.Fatal(err)
 		}
 		return data
 	}

@@ -55,10 +55,15 @@ func TestCLIConfig(t *testing.T) {
 		t.Errorf("unexpected entitlements, got:\n%s\nwant to contain:\n%s", got, want)
 	}
 
-	pl, err = cfg.Signing.PerFileEntitlements.For("xpcHelper").MarshalIndent(" ")
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
+	efor := func(p string) []byte {
+		data, err := getEntitlements(cfg.Signing.PerFileEntitlements, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return data
 	}
+
+	pl = efor("xpcHelper")
 
 	expectedPerFileEntitlements := plistPreamble + ` <dict>
   <key>com.apple.security.app-sandbox</key>
@@ -70,10 +75,7 @@ func TestCLIConfig(t *testing.T) {
 		t.Errorf("unexpected per file entitlements, got:\n%s\nwant to contain:\n%s", got, want)
 	}
 
-	pl, err = cfg.Signing.PerFileEntitlements.For("Contents/MacOS/xpcHelper").MarshalIndent(" ")
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
+	pl = efor("Contents/MacOS/xpcHelper")
 
 	if got, want := string(pl), expectedPerFileEntitlements; got != want {
 		t.Errorf("unexpected per file entitlements, got:\n%s\nwant to contain:\n%s", got, want)
