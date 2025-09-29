@@ -10,15 +10,23 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // StepRunnerOption configures a StepRunner.
 type StepRunnerOption func(o *stepRunnerOptions)
 
+func WithStepTiming(timing bool) StepRunnerOption {
+	return func(o *stepRunnerOptions) {
+		o.timing = timing
+	}
+}
+
 type stepRunnerOptions struct {
-	// future options here
+	timing bool
 }
 
 // StepRunner manages and executes a series of Steps.
@@ -43,15 +51,18 @@ type Step interface {
 }
 
 // AddSteps adds one or more steps to the StepRunner.
-func (r *StepRunner) AddSteps(steps ...Step) {
+func (r *StepRunner) AddSteps(steps ...Step) *StepRunner {
 	r.steps = append(r.steps, steps...)
+	return r
 }
 
 type StepResult struct {
 	executable string
+	cwd        string
 	args       []string
 	output     []byte
 	err        error
+	duration   time.Duration
 }
 
 func NewStepResult(executable string, args []string, output []byte, err error) StepResult {
@@ -87,6 +98,10 @@ func (le *StepResult) Error() error {
 	return le.err
 }
 
+func (le *StepResult) Duration() time.Duration {
+	return le.duration
+}
+
 // RunResult captures the outcome of running the steps.
 type RunResult []StepResult
 
@@ -101,12 +116,19 @@ func (r RunResult) Error() error {
 // Run executes all added steps in sequence and returns a RunResult.
 func (r *StepRunner) Run(ctx context.Context, cmdRunner *CommandRunner) RunResult {
 	var log RunResult
-	for _, step := range r.steps {
+	start := time.Now()
+	for i, step := range r.steps {
 		result, err := step.Run(ctx, cmdRunner)
 		log = append(log, result)
 		if err != nil {
 			break
 		}
+		if r.options.timing {
+			fmt.Fprintf(os.Stderr, "  step: %d: %v: %v\n", i, result.Duration(), result.CommandLine())
+		}
+	}
+	if r.options.timing {
+		fmt.Fprintf(os.Stderr, "total: %v\n", time.Since(start))
 	}
 	return log
 }
@@ -116,6 +138,7 @@ type CommandRunnerOption func(o *commandRunnerOptions)
 
 type commandRunnerOptions struct {
 	dryRun bool
+	timing bool
 	stdout io.Writer
 	stderr io.Writer
 }
@@ -124,6 +147,12 @@ type commandRunnerOptions struct {
 func WithDryRun(dryRun bool) CommandRunnerOption {
 	return func(o *commandRunnerOptions) {
 		o.dryRun = dryRun
+	}
+}
+
+func WithCommandTiming(timing bool) CommandRunnerOption {
+	return func(o *commandRunnerOptions) {
+		o.timing = timing
 	}
 }
 
@@ -196,7 +225,9 @@ func (r *CommandRunner) Run(ctx context.Context, name string, args ...string) (S
 	if r.options.dryRun {
 		return StepResult{executable: name, args: args}, nil
 	}
+	start := time.Now()
 	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Dir, _ = CWDFromContext(ctx)
 	if r.options.stdout != nil {
 		cmd.Stdout = r.options.stdout
 	}
@@ -204,7 +235,7 @@ func (r *CommandRunner) Run(ctx context.Context, name string, args ...string) (S
 		cmd.Stderr = r.options.stderr
 	}
 	output, err := cmd.CombinedOutput()
-	return StepResult{executable: name, args: args, output: output, err: err}, err
+	return StepResult{executable: name, args: args, output: output, duration: time.Since(start), err: err}, err
 }
 
 func (r *CommandRunner) WriteFile(ctx context.Context, path string, data []byte, perm uint32) (string, error) {
@@ -239,9 +270,9 @@ func (s stepFunc) Run(ctx context.Context, cmdRunner *CommandRunner) (StepResult
 	return s(ctx, cmdRunner)
 }
 
-func NoopStep() Step {
+func NoopStep(detail string) Step {
 	return StepFunc(func(_ context.Context, _ *CommandRunner) (StepResult, error) {
-		return StepResult{}, nil
+		return StepResult{executable: "noop: " + detail}, nil
 	})
 }
 
@@ -249,4 +280,32 @@ func ErrorStep(err error, cmd string, args ...string) Step {
 	return StepFunc(func(_ context.Context, _ *CommandRunner) (StepResult, error) {
 		return StepResult{executable: cmd, args: args, err: err}, err
 	})
+}
+
+type cwdKey struct{}
+
+// ContextWithCWD returns a new context with the specified current
+// working directory. CommandRunner will use this directory for
+// executing commands.
+func ContextWithCWD(ctx context.Context, cwd string) context.Context {
+	return context.WithValue(ctx, cwdKey{}, cwd)
+}
+
+var processCWD string
+
+func init() {
+	var err error
+	processCWD, err = os.Getwd()
+	if err != nil {
+		panic(fmt.Sprintf("failed to get current working directory: %v", err))
+	}
+}
+
+// CWDFromContext retrieves the current working directory from the context.
+func CWDFromContext(ctx context.Context) (string, bool) {
+	cwd, ok := ctx.Value(cwdKey{}).(string)
+	if !ok {
+		return processCWD, true
+	}
+	return cwd, true
 }

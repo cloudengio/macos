@@ -53,6 +53,10 @@ func generateExtensionID(publicKey []byte) string {
 	return string(extensionID)
 }
 
+// ChromeExtensionID generates a stable Chrome Extension ID suitable for development use.
+// Note that this ID is derived from a newly generated RSA key pair each time
+// the function is called, so it will be different on each invocation.
+// For a stable ID, you would need to persist the generated key pair.
 func (b Browser) ChromeExtensionID() (string, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
