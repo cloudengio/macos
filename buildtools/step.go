@@ -58,7 +58,6 @@ func (r *StepRunner) AddSteps(steps ...Step) *StepRunner {
 
 type StepResult struct {
 	executable string
-	cwd        string
 	args       []string
 	output     []byte
 	err        error
@@ -227,7 +226,7 @@ func (r *CommandRunner) Run(ctx context.Context, name string, args ...string) (S
 	}
 	start := time.Now()
 	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir, _ = CWDFromContext(ctx)
+	cmd.Dir = CWDFromContext(ctx)
 	if r.options.stdout != nil {
 		cmd.Stdout = r.options.stdout
 	}
@@ -301,11 +300,17 @@ func init() {
 	}
 }
 
-// CWDFromContext retrieves the current working directory from the context.
-func CWDFromContext(ctx context.Context) (string, bool) {
+// CWDFromContext retrieves the current working directory from the context,
+// as set by ContextWithCWD. If no directory has been set in the context
+// the function returns the process's current working directory at the time
+// that this package was initialized. Note that this may differ from the actual
+// current working directory of the process if it has changed since the package
+// was initialized or if another package that was initialized earlier has
+// changed the current working directory of the process.
+func CWDFromContext(ctx context.Context) string {
 	cwd, ok := ctx.Value(cwdKey{}).(string)
 	if !ok {
-		return processCWD, true
+		return processCWD
 	}
-	return cwd, true
+	return cwd
 }

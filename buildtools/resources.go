@@ -5,6 +5,7 @@
 package buildtools
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 )
@@ -20,7 +21,8 @@ func (r Resources) IconSetSteps() []Step {
 	for _, is := range r.Icons {
 		// Already exists.
 		if _, err := os.Stat(is.IconSetFile()); err == nil {
-			return []Step{NoopStep("Icon set already exists")}
+			steps = append(steps, NoopStep(fmt.Sprintf("Icon set %q already exists", is.IconSetFile())))
+			continue
 		}
 		steps = append(steps, MkdirAll(is.Dir))
 		format := is.IconFormat()

@@ -85,11 +85,14 @@ func (s SigningConfig) Signer() Signer {
 // PrintResultAndExitOnErrorf prints the results of running steps and exits with a non-zero
 // status if any of the steps failed.
 func (f CommonFlags) PrintResultAndExitOnErrorf(spec any, result RunResult) {
-	out, _ := yaml.Marshal(spec)
 	err := result.Error()
 	verbose := f.Verbose || err != nil
 	if verbose {
-		fmt.Printf("%v: %s\n", f.ConfigFile, out)
+		if out, err := yaml.Marshal(spec); err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to marshal spec parsed from %v: %v\n", f.ConfigFile, err)
+		} else {
+			fmt.Printf("%v: %s\n", f.ConfigFile, out)
+		}
 		for _, r := range result {
 			if r.Error() != nil {
 				fmt.Println(r.String())

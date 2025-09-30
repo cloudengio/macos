@@ -67,6 +67,11 @@ func (b AppBundle) Contents(elem ...string) string {
 	return filepath.Join(b.Path, "Contents", filepath.Join(elem...))
 }
 
+// CopyIcons returns steps to copy the specified icons into the app bundle's
+// Resources directory. If multiple icons are specified and the icon's BundleIcon
+// field is set or if there is only a single icon then it is copied to the location
+// specified by the bundle's Info.plist CFBundleIconFile field. All other icons
+// are copied to their own directories within the Resources directory.
 func (b AppBundle) CopyIcons(icons []IconSet) []Step {
 	if len(icons) == 0 {
 		return []Step{NoopStep("CopyIcons: no icons specified for the bundle")}
@@ -75,12 +80,9 @@ func (b AppBundle) CopyIcons(icons []IconSet) []Step {
 		return []Step{NoopStep("CopyIcons: bundle Info.plist CFBundleIconFile not set")}
 	}
 	steps := []Step{}
-	if len(icons) == 1 {
-		icons[0].BundleIcon = true
-	}
 	for _, icon := range icons {
 		var dst string
-		if icon.BundleIcon {
+		if icon.BundleIcon || len(icons) == 1 {
 			dst = filepath.Join(b.Path, "Contents", "Resources", b.Info.CFBundleIconFile)
 		} else {
 			dst = filepath.Join(b.Path, "Contents", "Resources", icon.Name)

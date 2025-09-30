@@ -65,8 +65,7 @@ func (s SwiftApp) BinDir() string {
 func (s SwiftApp) CopyIcons(icons []IconSet) []Step {
 	steps := []Step{}
 	for _, icon := range icons {
-		var dst string
-		dst = filepath.Join(s.root, "Resources", icon.Name)
+		dst := filepath.Join(s.root, "Resources", icon.Name)
 		steps = append(steps, Copy(icon.IconSetFile(), dst))
 	}
 	return steps
