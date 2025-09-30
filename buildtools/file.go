@@ -6,7 +6,10 @@ package buildtools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 )
 
 // MkdirAll returns a Step that creates a directory and all necessary parents using mkdir -p.
@@ -63,4 +66,30 @@ func CopyDir(srcDir, dstDir string) Step {
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		return cmdRunner.Run(ctx, "cp", "-r", srcDir, dstDir)
 	})
+}
+
+// RSync returns a Step that synchronizes files and directories using rsync.
+func RSync(src, dst string, args ...string) Step {
+	allArgs := append([]string{"-a", "--delete"}, args...)
+	allArgs = append(allArgs, src, dst)
+	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+		return cmdRunner.Run(ctx, "rsync", allArgs...)
+	})
+}
+
+// WriteFile returns a Step that writes data to the specified path with the specified permissions.
+func WriteFile(data []byte, perm os.FileMode, elems ...string) Step {
+	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+		path := filepath.Join(elems...)
+		err := os.WriteFile(path, data, os.FileMode(perm))
+		return NewStepResult("os.WriteFile", []string{path, fmt.Sprintf("%o", perm)}, nil, err), err
+	})
+}
+
+func WriteJSON(v any, perm os.FileMode, elems ...string) Step {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return ErrorStep(fmt.Errorf("failed to marshal json: %w", err), "json.Marshal")
+	}
+	return WriteFile(data, perm, elems...)
 }

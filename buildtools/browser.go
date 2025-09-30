@@ -10,7 +10,9 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/pem"
 	"fmt"
+	"os"
 )
 
 // Browser represents a web browser.
@@ -52,23 +54,70 @@ func generateExtensionID(publicKey []byte) (string, error) {
 	return string(extensionID), nil
 }
 
-// ChromeExtensionID generates a stable Chrome Extension ID suitable for development use.
+// CreateChromeExtensionID generates a stable Chrome Extension ID suitable for development use.
 // Note that this ID is derived from a newly generated RSA key pair each time
 // the function is called, so it will be different on each invocation.
 // For a stable ID, you would need to persist the generated key pair.
-func (b Browser) ChromeExtensionID() (string, error) {
+func (b Browser) CreateChromeExtensionID() ([]byte, string, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate RSA key pair: %v", err)
+		return nil, "", fmt.Errorf("failed to generate RSA key pair: %v", err)
 	}
+
+	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
+	// MarshalPKCS1PrivateKey returns the DER encoding of the private key.
+	// To obtain PEM encoding, wrap the DER bytes using pem.Encode or pem.EncodeToMemory.
+	// Example:
+	pemBlock := &pem.Block{Type: "RSA PRIVATE KEY", Bytes: privateKeyBytes}
+	pemBytes := pem.EncodeToMemory(pemBlock)
 
 	// 2. Extract the public key and encode it into the DER PKCS#1 format
 	// required for the SHA-256 hash calculation by Chrome.
 	publicKeyBytes := x509.MarshalPKCS1PublicKey(&privateKey.PublicKey)
 	if publicKeyBytes == nil {
-		return "", fmt.Errorf("failed to marshal public key to PKCS#1 format")
+		return nil, "", fmt.Errorf("failed to marshal public key to PKCS#1 format")
 	}
 
 	// 3. Generate the final extension ID.
+	id, err := generateExtensionID(publicKeyBytes)
+	return pemBytes, id, err
+}
+
+// ChromeExtensionID reads the RSA private key from the specified PEM-encoded file
+// to obtain the corresponding stable Chrome Extension ID.
+func (b Browser) ChromeExtensionID(keyFile string) (string, error) {
+	// Read the private key from the specified file.
+	privateKeyData, err := os.ReadFile(keyFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read private key file: %v", err)
+	}
+
+	// Decode the PEM block containing the private key.
+	block, _ := pem.Decode(privateKeyData)
+	if block == nil || block.Type != "RSA PRIVATE KEY" {
+		return "", fmt.Errorf("failed to decode PEM block containing RSA private key")
+	}
+
+	// Parse the RSA private key.
+	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse RSA private key: %v", err)
+	}
+
+	// Extract the public key and encode it into the DER PKCS#1 format
+	// required for the SHA-256 hash calculation by Chrome.
+	publicKeyBytes := x509.MarshalPKCS1PublicKey(&privateKey.PublicKey)
 	return generateExtensionID(publicKeyBytes)
+}
+
+type NativeMessagingConfig struct {
+	Name           string `json:"name"`
+	Description    string `json:"description"`
+	Path           string `json:"path"`
+	Type           string `json:"type"` // "stdio" or one of the other allowed communication types
+	AllowedOrigins []string
+}
+
+func (nm *NativeMessagingConfig) AppendOrigin(extensionID string) {
+	nm.AllowedOrigins = append(nm.AllowedOrigins, fmt.Sprintf("chrome-extension://%s/", extensionID))
 }

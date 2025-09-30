@@ -48,6 +48,7 @@ func TestAppBundle(t *testing.T) {
 	if len(steps) == 0 {
 		t.Fatal("expected steps to create bundle, but got none")
 	}
+	steps = append(steps, bundle.WriteInfoPlist())
 
 	// Execute each step
 	for i, step := range steps {
