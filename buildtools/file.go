@@ -7,7 +7,6 @@ package buildtools
 import (
 	"context"
 	"fmt"
-	"strings"
 )
 
 // MkdirAll returns a Step that creates a directory and all necessary parents using mkdir -p.
@@ -64,18 +63,4 @@ func CopyDir(srcDir, dstDir string) Step {
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		return cmdRunner.Run(ctx, "cp", "-r", srcDir, dstDir)
 	})
-}
-
-// SwiftBinDir returns the directory containing the swift build products.
-func SwiftBinDir(ctx context.Context, release bool) (string, error) {
-	runner := NewCommandRunner()
-	args := []string{"build", "--show-bin-path"}
-	if release {
-		args = append(args, "--configuration", "release")
-	}
-	r, err := runner.Run(ctx, "swift", args...)
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(r.Output()), nil
 }

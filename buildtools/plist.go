@@ -18,13 +18,15 @@ import (
 // and are extracted from the Raw map for convenience and use
 // within this package.
 type InfoPlist struct {
-	CFBundleIdentifier  string
-	CFBundleName        string
-	CFBundleExecutable  string
-	CFBundleIconFile    string
-	CFBundlePackageType string
-	XPCService          *XPCServicePlist
-	Raw                 map[string]any
+	CFBundleIdentifier     string
+	CFBundleName           string
+	CFBundleExecutable     string
+	CFBundleIconFile       string
+	CFBundlePackageType    string
+	LSMinimumSystemVersion string
+	CFBundleDisplayName    string
+	XPCService             *XPCServicePlist
+	Raw                    map[string]any
 }
 
 // XPCServicePlist represents the contents of an XPCService dictionary
@@ -59,6 +61,12 @@ func (ipl *InfoPlist) UnmarshalYAML(node *yaml.Node) error {
 		return err
 	}
 	if ipl.CFBundlePackageType, err = asString(ipl.Raw, "CFBundlePackageType"); err != nil {
+		return err
+	}
+	if ipl.LSMinimumSystemVersion, err = asString(ipl.Raw, "LSMinimumSystemVersion"); err != nil {
+		return err
+	}
+	if ipl.CFBundleDisplayName, err = asString(ipl.Raw, "CFBundleDisplayName"); err != nil {
 		return err
 	}
 	// optional

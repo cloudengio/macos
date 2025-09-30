@@ -5,11 +5,14 @@
 package buildtools
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 )
 
 // AppBundle represents a macOS application bundle.
+// See: https://developer.apple.com/documentation/bundleresources
+// See: https://developer.apple.com/documentation/bundleresources/placing-content-in-a-bundle
 type AppBundle struct {
 	Path string
 	Info InfoPlist
@@ -64,12 +67,29 @@ func (b AppBundle) Contents(elem ...string) string {
 	return filepath.Join(b.Path, "Contents", filepath.Join(elem...))
 }
 
-func (b AppBundle) CopyIcons(src string) Step {
-	if len(b.Info.CFBundleIconFile) == 0 {
-		return NoopStep()
+// CopyIcons returns steps to copy the specified icons into the app bundle's
+// Resources directory. If multiple icons are specified and the icon's BundleIcon
+// field is set or if there is only a single icon then it is copied to the location
+// specified by the bundle's Info.plist CFBundleIconFile field. All other icons
+// are copied to their own directories within the Resources directory.
+func (b AppBundle) CopyIcons(icons []IconSet) []Step {
+	if len(icons) == 0 {
+		return []Step{NoopStep("CopyIcons: no icons specified for the bundle")}
 	}
-	dst := filepath.Join(b.Path, "Contents", "Resources", b.Info.CFBundleIconFile)
-	return Copy(src, dst)
+	if len(b.Info.CFBundleIconFile) == 0 {
+		return []Step{NoopStep("CopyIcons: bundle Info.plist CFBundleIconFile not set")}
+	}
+	steps := []Step{}
+	for _, icon := range icons {
+		var dst string
+		if icon.BundleIcon || len(icons) == 1 {
+			dst = filepath.Join(b.Path, "Contents", "Resources", b.Info.CFBundleIconFile)
+		} else {
+			dst = filepath.Join(b.Path, "Contents", "Resources", icon.Name)
+		}
+		steps = append(steps, Copy(icon.IconSetFile(), dst))
+	}
+	return steps
 }
 
 func (b AppBundle) Sign(signer Signer) Step {
@@ -81,4 +101,10 @@ func (b AppBundle) VerifySignatures(signer Signer) []Step {
 		signer.VerifyPath(b.Path, ""),
 	}
 	return steps
+}
+
+func (b AppBundle) SPCtlAsses() Step {
+	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+		return cmdRunner.Run(ctx, "spctl", "--assess", "--type", "execute", b.Path)
+	})
 }

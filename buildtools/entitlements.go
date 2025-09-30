@@ -51,8 +51,16 @@ func (e Entitlements) MarshalPlist() (any, error) {
 	return e.raw, nil
 }
 
+func (e Entitlements) MarshalYAML() (any, error) {
+	return e.raw, nil
+}
+
 func (e PerFileEntitlements) MarshalPlist() (any, error) {
 	return nil, fmt.Errorf("cannot marshal PerFileEntitlements to plist")
+}
+
+func (e PerFileEntitlements) MarshalYAML() (any, error) {
+	return e.raw, nil
 }
 
 // MarshalIndent returns the XML plist representation of the entitlements

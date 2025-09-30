@@ -21,6 +21,8 @@ CFBundleVersion: 1.0.0
 CFBundleShortVersionString: 1.0
 CFBundleExecutable: TestExecutable
 CFBundlePackageType: APPL
+LSMinimumSystemVersion: "15.0"
+CFBundleDisplayName: Swift UI Example
 `
 
 func TestAppBundle(t *testing.T) {

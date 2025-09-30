@@ -23,6 +23,8 @@ CFBundleShortVersionString: 1.0
 CFBundleExecutable: TestExecutable
 CFBundleIconFile: AppIcon
 CFBundlePackageType: APPL
+LSMinimumSystemVersion: "15.0"
+CFBundleDisplayName: Swift UI Example
 SomethingNew: SomeValue
 XPCService:
   ServiceName: io.cloudeng.TestService
