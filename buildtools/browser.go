@@ -159,6 +159,11 @@ func (nm *NativeMessagingConfig) Validate(browser BrowserType) Step {
 	})
 }
 
+var (
+	chromeAllowedCharacters = regexp.MustCompile(`^[a-z0-9_.]+$`)
+	chromeNoConsecutiveDots = regexp.MustCompile(`\.\.`)
+)
+
 func (nm *NativeMessagingConfig) ValidateChrome() error {
 	// Name validation: lowercase alphanumeric, underscores, dots; cannot start/end with dot; no consecutive dots.
 	name := nm.Name
@@ -166,11 +171,7 @@ func (nm *NativeMessagingConfig) ValidateChrome() error {
 		return fmt.Errorf("name cannot be empty")
 	}
 	// Only allowed characters
-	matched, err := regexp.MatchString(`^[a-z0-9_.]+$`, name)
-	if err != nil {
-		return fmt.Errorf("failed to validate name: %v", err)
-	}
-	if !matched {
+	if !chromeAllowedCharacters.MatchString(name) {
 		return fmt.Errorf("name %q must only contain lowercase alphanumeric characters, underscores, and dots", name)
 	}
 	// Cannot start or end with a dot
@@ -178,7 +179,7 @@ func (nm *NativeMessagingConfig) ValidateChrome() error {
 		return fmt.Errorf("name %q cannot start or end with a dot", name)
 	}
 	// No consecutive dots
-	if regexp.MustCompile(`\.\.`).FindStringIndex(name) != nil {
+	if chromeNoConsecutiveDots.FindStringIndex(name) != nil {
 		return fmt.Errorf("name %q cannot contain consecutive dots", name)
 	}
 	return nil
@@ -190,5 +191,5 @@ func (nm *NativeMessagingConfig) AppendChromeOrigin(extensionID string) {
 
 func (nm *NativeMessagingConfig) AppendFirefoxOrigin(extension string) {
 	// TODO(cnicolaou): verify format
-	nm.AllowedOrigins = append(nm.AllowedOrigins, fmt.Sprintf("%s", extension))
+	nm.AllowedOrigins = append(nm.AllowedOrigins, extension)
 }

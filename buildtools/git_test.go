@@ -95,11 +95,7 @@ func TestGitReplaceBranch(t *testing.T) {
 
 func TestGitHash(t *testing.T) {
 	// Create a temporary directory for our test git repository
-	tempDir, err := os.MkdirTemp("", "git_hash_test_*")
-	if err != nil {
-		t.Fatalf("failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tempDir)
+	tempDir := t.TempDir()
 
 	// Initialize a git repository for testing
 	ctx := context.Background()
@@ -107,7 +103,7 @@ func TestGitHash(t *testing.T) {
 	ctx = buildtools.ContextWithCWD(ctx, tempDir)
 
 	// Initialize git repo
-	_, err = runner.Run(ctx, "git", "init")
+	_, err := runner.Run(ctx, "git", "init")
 	if err != nil {
 		t.Skipf("git not available, skipping test: %v", err)
 	}
@@ -158,7 +154,7 @@ func TestGitHash(t *testing.T) {
 
 	// Verify it's a valid hex string
 	for _, c := range hash {
-		if !((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')) {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
 			t.Errorf("hash contains invalid character %q: %q", string(c), hash)
 		}
 	}

@@ -52,7 +52,10 @@ func (b AppBundle) WriteInfoPlistGitBuild(ctx context.Context, git Git) []Step {
 	})
 
 	writePlist := StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
-		newVersion := <-versionCh
+		newVersion, ok := <-versionCh
+		if !ok {
+			return NewStepResult("no new version for CFBundleVersion, skipping update", nil, nil, nil), nil
+		}
 		b.Info.Raw["CFBundleVersion"] = newVersion
 		return writeInfoPlist(filepath.Join(b.Path, "Contents", "Info.plist"), "Info.plist", b.Info).Run(ctx, cmdRunner)
 	})
