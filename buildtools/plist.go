@@ -99,27 +99,16 @@ func (ipl InfoPlist) MarshalYAML() (any, error) {
 	return ipl.Raw, nil
 }
 
-func writeInfoPlist(path string, info InfoPlist) Step {
+func writeInfoPlist(path, name string, info any) Step {
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		if cmdRunner.DryRun() {
-			return NewStepResult("write Info.plist", []string{path}, nil, nil), nil
+			return NewStepResult("write "+name, []string{path}, nil, nil), nil
 		}
 		data, err := plist.MarshalIndent(info, plist.XMLFormat, "\t")
 		if err != nil {
-			return NewStepResult("write Info.plist", []string{path}, nil, err), err
+			return NewStepResult("write "+name, []string{path}, nil, err), err
 		}
 		err = os.WriteFile(path, data, 0644)
-		return NewStepResult("write Info.plist", []string{path}, nil, err), err
+		return NewStepResult("write "+name, []string{path}, nil, err), err
 	})
-}
-
-type PkgPlist struct {
-	RootRelativeBundlePath      string
-	BundleIsRelocatable         bool
-	BundleIsVersionChecked      bool
-	BundleHasStrictIdentifier   bool
-	BundleOverwriteAction       string
-	BundlePreInstallScriptPath  string
-	BundlePostInstallScriptPath string
-	BundleInstallScriptTimeout  int
 }

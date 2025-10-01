@@ -16,6 +16,7 @@ type Resources struct {
 	Icons      []IconSet `yaml:"icons"` // multiple icon sets can be specified
 }
 
+// IconSetSteps returns the steps needed to create the icon sets specified in the Resources.
 func (r Resources) IconSetSteps() []Step {
 	steps := []Step{}
 	for _, is := range r.Icons {

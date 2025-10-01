@@ -5,6 +5,7 @@
 package buildtools
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -13,6 +14,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
+	"regexp"
 )
 
 // Browser represents a web browser.
@@ -83,41 +85,110 @@ func (b Browser) CreateChromeExtensionID() ([]byte, string, error) {
 	return pemBytes, id, err
 }
 
-// ChromeExtensionID reads the RSA private key from the specified PEM-encoded file
-// to obtain the corresponding stable Chrome Extension ID.
-func (b Browser) ChromeExtensionID(keyFile string) (string, error) {
+// ReadChromeExtensionID reads the RSA private key from the specified PEM-encoded file
+// to obtain the public key and corresponding Chrome Extension ID.
+func (b Browser) ReadChromeExtensionID(keyFile string) ([]byte, string, error) {
 	// Read the private key from the specified file.
 	privateKeyData, err := os.ReadFile(keyFile)
 	if err != nil {
-		return "", fmt.Errorf("failed to read private key file: %v", err)
+		return nil, "", fmt.Errorf("failed to read private key file: %v", err)
 	}
 
 	// Decode the PEM block containing the private key.
 	block, _ := pem.Decode(privateKeyData)
 	if block == nil || block.Type != "RSA PRIVATE KEY" {
-		return "", fmt.Errorf("failed to decode PEM block containing RSA private key")
+		return nil, "", fmt.Errorf("failed to decode PEM block containing RSA private key")
 	}
 
 	// Parse the RSA private key.
 	privateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse RSA private key: %v", err)
+		return nil, "", fmt.Errorf("failed to parse RSA private key: %v", err)
 	}
 
 	// Extract the public key and encode it into the DER PKCS#1 format
 	// required for the SHA-256 hash calculation by Chrome.
 	publicKeyBytes := x509.MarshalPKCS1PublicKey(&privateKey.PublicKey)
-	return generateExtensionID(publicKeyBytes)
+	id, err := generateExtensionID(publicKeyBytes)
+	return publicKeyBytes, id, err
+}
+
+type BrowserType int
+
+const (
+	Chrome BrowserType = iota
+	Firefox
+	Safari
+	Edge
+)
+
+func (b BrowserType) String() string {
+	switch b {
+	case Chrome:
+		return "chrome"
+	case Firefox:
+		return "firefox"
+	case Safari:
+		return "safari"
+	case Edge:
+		return "edge"
+	default:
+		return "unknown"
+	}
 }
 
 type NativeMessagingConfig struct {
-	Name           string `json:"name"`
-	Description    string `json:"description"`
-	Path           string `json:"path"`
-	Type           string `json:"type"` // "stdio" or one of the other allowed communication types
-	AllowedOrigins []string
+	Name              string   `json:"name"`
+	Description       string   `json:"description"`
+	Path              string   `json:"path"`
+	Type              string   `json:"type"`                         // "stdio" or one of the other allowed communication types
+	AllowedOrigins    []string `json:"allowed_origins,omitempty"`    // chrome-extension://<extension-id>/
+	AllowedExtensions []string `json:"allowed_extensions,omitempty"` // firefox extension ids
 }
 
-func (nm *NativeMessagingConfig) AppendOrigin(extensionID string) {
+func (nm *NativeMessagingConfig) Validate(browser BrowserType) Step {
+	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+		switch browser {
+		default:
+			err := fmt.Errorf("unsupported browser: %q", browser)
+			return NewStepResult("validate native messaging config", nil, nil, err), err
+		case Chrome:
+			err := nm.ValidateChrome()
+			return NewStepResult("validate chrome native messaging config", nil, nil, err), err
+		}
+	})
+}
+
+func (nm *NativeMessagingConfig) ValidateChrome() error {
+	// Name validation: lowercase alphanumeric, underscores, dots; cannot start/end with dot; no consecutive dots.
+	name := nm.Name
+	if name == "" {
+		return fmt.Errorf("name cannot be empty")
+	}
+	// Only allowed characters
+	matched, err := regexp.MatchString(`^[a-z0-9_.]+$`, name)
+	if err != nil {
+		return fmt.Errorf("failed to validate name: %v", err)
+	}
+	if !matched {
+		return fmt.Errorf("name %q must only contain lowercase alphanumeric characters, underscores, and dots", name)
+	}
+	// Cannot start or end with a dot
+	if name[0] == '.' || name[len(name)-1] == '.' {
+		return fmt.Errorf("name %q cannot start or end with a dot", name)
+	}
+	// No consecutive dots
+	if regexp.MustCompile(`\.\.`).FindStringIndex(name) != nil {
+		return fmt.Errorf("name %q cannot contain consecutive dots", name)
+	}
+	return nil
+}
+
+func (nm *NativeMessagingConfig) AppendChromeOrigin(extensionID string) {
 	nm.AllowedOrigins = append(nm.AllowedOrigins, fmt.Sprintf("chrome-extension://%s/", extensionID))
+}
+
+func (nm *NativeMessagingConfig) AppendFirefoxOrigin(extension string) {
+	// TODO(cnicolaou): verify format
+	nm.AllowedOrigins = append(nm.AllowedOrigins, fmt.Sprintf("%s", extension))
 }

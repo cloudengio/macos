@@ -86,7 +86,8 @@ func WriteFile(data []byte, perm os.FileMode, elems ...string) Step {
 	})
 }
 
-func WriteJSON(v any, perm os.FileMode, elems ...string) Step {
+// WriteJSONFile returns a Step that marshals v to JSON and writes it to the specified path with the specified permissions.
+func WriteJSONFile(v any, perm os.FileMode, elems ...string) Step {
 	data, err := json.Marshal(v)
 	if err != nil {
 		return ErrorStep(fmt.Errorf("failed to marshal json: %w", err), "json.Marshal")

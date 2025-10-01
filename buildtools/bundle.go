@@ -54,14 +54,14 @@ func (b AppBundle) WriteInfoPlistGitBuild(ctx context.Context, git Git) []Step {
 	writePlist := StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		newVersion := <-versionCh
 		b.Info.Raw["CFBundleVersion"] = newVersion
-		return writeInfoPlist(filepath.Join(b.Path, "Contents", "Info.plist"), b.Info).Run(ctx, cmdRunner)
+		return writeInfoPlist(filepath.Join(b.Path, "Contents", "Info.plist"), "Info.plist", b.Info).Run(ctx, cmdRunner)
 	})
 
 	return []Step{getHash, writePlist}
 }
 
 func (b AppBundle) WriteInfoPlist() Step {
-	return writeInfoPlist(filepath.Join(b.Path, "Contents", "Info.plist"), b.Info)
+	return writeInfoPlist(filepath.Join(b.Path, "Contents", "Info.plist"), "Info.plist", b.Info)
 }
 
 // CopyContents returns the step required to copy a file into the app bundle
