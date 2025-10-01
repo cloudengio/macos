@@ -59,6 +59,7 @@ CFBundleDisplayName: Swift UI Example
 
 	// Get the steps to create the basic bundle structure
 	runner.AddSteps(bundle.Create()...)
+	runner.AddSteps(bundle.WriteInfoPlist())
 	runner.AddSteps(bundle.CopyContents(exePath, "MacOS", "ExampleExecutable"))
 	results := runner.Run(ctx, buildtools.NewCommandRunner())
 	if err := results.Error(); err != nil {

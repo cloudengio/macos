@@ -24,9 +24,9 @@ type CommonFlags struct {
 	Verbose    bool   `subcmd:"verbose,false,'if set, print verbose output'"`
 }
 
-// RegisterCommonFlagsOrDie registers an instance of CommonFlags with the provided
+// RegisterFlagsOrDie registers a struct that contains an instance of CommonFlags with the provided
 // FlagSet, panicing on error.
-func RegisterCommonFlagsOrDie(f *CommonFlags, fs *flag.FlagSet) {
+func RegisterFlagsOrDie(f any, fs *flag.FlagSet) {
 	if err := flags.RegisterFlagsInStruct(fs, "subcmd", f, nil, nil); err != nil {
 		panic(err)
 	}
@@ -64,8 +64,8 @@ func (f CommonFlags) ParseFile(cfg any) error {
 // Config represents common configuration options
 // that can be read from a yaml config file.
 type Config struct {
-	Bundle  string        `yaml:"bundle"`
-	Signing SigningConfig `yaml:"signing"`
+	AppBundle string        `yaml:"bundle"`
+	Signing   SigningConfig `yaml:"signing"`
 }
 
 // SigningConfig represents signing related configuration

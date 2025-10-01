@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"strings"
 )
 
 // AppBundle represents a macOS application bundle.
@@ -26,9 +27,44 @@ func (b AppBundle) Create() []Step {
 		MkdirAll(filepath.Join(b.Path, "Contents", "MacOS")),
 		MkdirAll(filepath.Join(b.Path, "Contents", "Resources")),
 	}
-	infoPlist := filepath.Join(b.Path, "Contents", "Info.plist")
-	steps = append(steps, writeInfoPlist(infoPlist, b.Info))
 	return steps
+}
+
+func (b AppBundle) WriteInfoPlistGitBuild(ctx context.Context, git Git) []Step {
+	versionCh := make(chan string, 1)
+
+	getHash := StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+		branch := git.GetBranch(b.Info.CFBundleVersion)
+		if len(branch) == 0 {
+			return StepResult{}, nil
+		}
+		res, err := git.Hash(ctx, cmdRunner, branch, 8)
+		if err != nil {
+			return res, err
+		}
+		newVersion := git.ReplaceBranch(b.Info.CFBundleVersion, strings.TrimSpace(res.Output()))
+		if b.Info.CFBundleVersion == newVersion {
+			return NewStepResult("no change to CFBundleVersion", nil, nil, nil), nil
+		}
+		versionCh <- newVersion
+		return NewStepResult(
+			fmt.Sprintf("CFBundleVersion: replace %q with %q", branch, newVersion), nil, nil, nil), nil
+	})
+
+	writePlist := StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+		newVersion, ok := <-versionCh
+		if !ok {
+			return NewStepResult("no new version for CFBundleVersion, skipping update", nil, nil, nil), nil
+		}
+		b.Info.Raw["CFBundleVersion"] = newVersion
+		return writeInfoPlist(filepath.Join(b.Path, "Contents", "Info.plist"), "Info.plist", b.Info).Run(ctx, cmdRunner)
+	})
+
+	return []Step{getHash, writePlist}
+}
+
+func (b AppBundle) WriteInfoPlist() Step {
+	return writeInfoPlist(filepath.Join(b.Path, "Contents", "Info.plist"), "Info.plist", b.Info)
 }
 
 // CopyContents returns the step required to copy a file into the app bundle

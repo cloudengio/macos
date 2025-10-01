@@ -30,7 +30,7 @@ func TestCLIConfig(t *testing.T) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 
-	if got, want := cfg.Bundle, "./testing.app"; got != want {
+	if got, want := cfg.AppBundle, "./testing.app"; got != want {
 		t.Fatalf("unexpected bundle, got %q, want %q", got, want)
 	}
 	if got, want := cfg.Signing.Identity, "Apple Development: some id"; got != want {
