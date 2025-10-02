@@ -57,14 +57,14 @@ func (b AppBundle) WriteInfoPlistGitBuild(ctx context.Context, git Git) []Step {
 			return NewStepResult("no new version for CFBundleVersion, skipping update", nil, nil, nil), nil
 		}
 		b.Info.Raw["CFBundleVersion"] = newVersion
-		return writeInfoPlist(filepath.Join(b.Path, "Contents", "Info.plist"), "Info.plist", b.Info).Run(ctx, cmdRunner)
+		return writeInfoPlist(filepath.Join(b.Path, "Contents", "Info.plist"), b.Info).Run(ctx, cmdRunner)
 	})
 
 	return []Step{getHash, writePlist}
 }
 
 func (b AppBundle) WriteInfoPlist() Step {
-	return writeInfoPlist(filepath.Join(b.Path, "Contents", "Info.plist"), "Info.plist", b.Info)
+	return writeInfoPlist(filepath.Join(b.Path, "Contents", "Info.plist"), b.Info)
 }
 
 // CopyContents returns the step required to copy a file into the app bundle
@@ -101,6 +101,12 @@ func (b AppBundle) VerifyContents(signer Signer, dst ...string) Step {
 // Contents directory.
 func (b AppBundle) Contents(elem ...string) string {
 	return filepath.Join(b.Path, "Contents", filepath.Join(elem...))
+}
+
+// Resources returns the path to the specified element within the app bundle's
+// Resources directory.
+func (b AppBundle) Resources(elem ...string) string {
+	return filepath.Join(b.Path, "Contents", "Resources", filepath.Join(elem...))
 }
 
 // CopyIcons returns steps to copy the specified icons into the app bundle's

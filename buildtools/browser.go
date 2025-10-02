@@ -137,6 +137,7 @@ func (b BrowserType) String() string {
 	}
 }
 
+// NativeMessagingConfig represents the configuration for a native messaging host.
 type NativeMessagingConfig struct {
 	Name              string   `json:"name"`
 	Description       string   `json:"description"`
@@ -146,6 +147,7 @@ type NativeMessagingConfig struct {
 	AllowedExtensions []string `json:"allowed_extensions,omitempty"` // firefox extension ids
 }
 
+// Validate validates the native messaging configuration for the specified browser.
 func (nm *NativeMessagingConfig) Validate(browser BrowserType) Step {
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		switch browser {
@@ -164,6 +166,7 @@ var (
 	chromeNoConsecutiveDots = regexp.MustCompile(`\.\.`)
 )
 
+// ValidateChrome validates the native messaging configuration for Chrome.
 func (nm *NativeMessagingConfig) ValidateChrome() error {
 	// Name validation: lowercase alphanumeric, underscores, dots; cannot start/end with dot; no consecutive dots.
 	name := nm.Name
@@ -185,11 +188,7 @@ func (nm *NativeMessagingConfig) ValidateChrome() error {
 	return nil
 }
 
+// AppendChromeOrigin appends the specified Chrome extension ID to the list of allowed origins.
 func (nm *NativeMessagingConfig) AppendChromeOrigin(extensionID string) {
 	nm.AllowedOrigins = append(nm.AllowedOrigins, fmt.Sprintf("chrome-extension://%s/", extensionID))
-}
-
-func (nm *NativeMessagingConfig) AppendFirefoxOrigin(extension string) {
-	// TODO(cnicolaou): verify format
-	nm.AllowedOrigins = append(nm.AllowedOrigins, extension)
 }
