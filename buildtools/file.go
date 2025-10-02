@@ -81,16 +81,25 @@ func RSync(src, dst string, args ...string) Step {
 func WriteFile(data []byte, perm os.FileMode, elems ...string) Step {
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		path := filepath.Join(elems...)
+		if cmdRunner.DryRun() {
+			return NewStepResult("write "+path, []string{path}, nil, nil), nil
+		}
 		err := os.WriteFile(path, data, os.FileMode(perm))
 		return NewStepResult("os.WriteFile", []string{path, fmt.Sprintf("%o", perm)}, nil, err), err
 	})
 }
 
 // WriteJSONFile returns a Step that marshals v to JSON and writes it to the specified path with the specified permissions.
-func WriteJSONFile(v any, perm os.FileMode, elems ...string) Step {
+func WriteJSONFile(v any, elems ...string) Step {
 	data, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {
 		return ErrorStep(fmt.Errorf("failed to marshal json: %w", err), "json.Marshal")
 	}
-	return WriteFile(data, perm, elems...)
+	return WriteFile(data, 0644, elems...)
+}
+
+// WritePlistFile returns a Step that marshals v to a plist and writes it to the specified path with the specified permissions.
+func WritePlistFile(v any, elems ...string) Step {
+	path := filepath.Join(elems...)
+	return writeInfoPlist(path, v)
 }

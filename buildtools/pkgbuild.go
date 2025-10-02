@@ -84,7 +84,7 @@ func (p PkgBuild) CopyLibrary(src, library string) Step {
 // WritePlist returns a Step that writes the specified component plist configuration
 // to the component.plist file within the package build root.
 func (p PkgBuild) WritePlist(cfg []PkgComponentPlist) Step {
-	return writeInfoPlist(filepath.Join(p.BuildDir, "component.plist"), "component.plist", cfg)
+	return writeInfoPlist(filepath.Join(p.BuildDir, "component.plist"), cfg)
 }
 
 // ScriptsPath returns the path to the scripts directory within the package build root.

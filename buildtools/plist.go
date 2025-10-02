@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 	"howett.net/plist"
@@ -99,7 +100,8 @@ func (ipl InfoPlist) MarshalYAML() (any, error) {
 	return ipl.Raw, nil
 }
 
-func writeInfoPlist(path, name string, info any) Step {
+func writeInfoPlist(path string, info any) Step {
+	name := filepath.Base(path)
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		if cmdRunner.DryRun() {
 			return NewStepResult("write "+name, []string{path}, nil, nil), nil

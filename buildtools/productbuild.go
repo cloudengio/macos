@@ -30,7 +30,7 @@ func (p ProductBuild) Create() []Step {
 	}
 }
 
-// CopyResource returns a Step that copies the specified resource to the
+// CopyResources returns a Step that copies the specified resource to the
 // resources directory within the product build root.
 func (p ProductBuild) CopyResources(src ...string) []Step {
 	if len(src) == 0 {
@@ -48,9 +48,9 @@ func (p ProductBuild) ResourcesPath() string {
 	return filepath.Join(p.BuildDir, "resources")
 }
 
-// Build returns a Step that creates a product archive using productbuild
+// BuildDistribution returns a Step that creates a product archive using productbuild
 // with the specified distribution XML at outputPkgPath.
-func (p ProductBuild) Build(outputPkgPath, signingIdenity string) Step {
+func (p ProductBuild) BuildDistribution(outputPkgPath, signingIdentity string) Step {
 	if len(p.GUIXML) == 0 {
 		return ErrorStep(fmt.Errorf("no distribution XML specified"), "productbuild")
 	}
@@ -62,8 +62,8 @@ func (p ProductBuild) Build(outputPkgPath, signingIdenity string) Step {
 		"--package-path", p.OutputsPath(),
 		"--resources", p.ResourcesPath(),
 	}
-	if len(signingIdenity) != 0 {
-		args = append(args, "--sign", signingIdenity)
+	if len(signingIdentity) != 0 {
+		args = append(args, "--sign", signingIdentity)
 	}
 	args = append(args, outputPkgPath)
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
@@ -74,7 +74,7 @@ func (p ProductBuild) Build(outputPkgPath, signingIdenity string) Step {
 // Install returns a Step that installs the package using the system installer command.
 func (p ProductBuild) Install(outputPath string) Step {
 	if len(p.InstallLocation) == 0 {
-		return ErrorStep(fmt.Errorf("no install location specified"), "open")
+		return ErrorStep(fmt.Errorf("no install location specified"), "installer")
 	}
 	pkgPath := filepath.Join(p.OutputsPath(), filepath.Base(outputPath))
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
@@ -91,7 +91,8 @@ type ProductBuildResources struct {
 	Packages        []string `yaml:"packages"`         // paths to the component packages to include in the product build.
 }
 
-// ProductPreInstallRequirements represents the productbuild pre-install requirements.
+// ProductPreInstallRequirements represents the productbuild pre-install requirements
+// for synthesized packages.
 type ProductPreInstallRequirements struct {
 	Raw map[string]any
 }
@@ -104,6 +105,6 @@ func (p *ProductPreInstallRequirements) UnmarshalYAML(node *yaml.Node) error {
 	return node.Decode(&p.Raw)
 }
 
-func (p *ProductPreInstallRequirements) MarshalPlist() (any, error) {
+func (p ProductPreInstallRequirements) MarshalPlist() (any, error) {
 	return p.Raw, nil
 }

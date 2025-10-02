@@ -828,16 +828,16 @@ ProductBuild represents the productbuild tool.
 ### Methods
 
 ```go
-func (p ProductBuild) Build(outputPkgPath, signingIdenity string) Step
+func (p ProductBuild) BuildDistribution(outputPkgPath, signingIdentity string) Step
 ```
-Build returns a Step that creates a product archive using productbuild with
-the specified distribution XML at outputPkgPath.
+BuildDistribution returns a Step that creates a product archive using
+productbuild with the specified distribution XML at outputPkgPath.
 
 
 ```go
 func (p ProductBuild) CopyResources(src ...string) []Step
 ```
-CopyResource returns a Step that copies the specified resource to the
+CopyResources returns a Step that copies the specified resource to the
 resources directory within the product build root.
 
 
@@ -883,12 +883,12 @@ type ProductPreInstallRequirements struct {
 }
 ```
 ProductPreInstallRequirements represents the productbuild pre-install
-requirements.
+requirements for synthesized packages.
 
 ### Methods
 
 ```go
-func (p *ProductPreInstallRequirements) MarshalPlist() (any, error)
+func (p ProductPreInstallRequirements) MarshalPlist() (any, error)
 ```
 
 
@@ -1104,10 +1104,17 @@ specified permissions.
 
 
 ```go
-func WriteJSONFile(v any, perm os.FileMode, elems ...string) Step
+func WriteJSONFile(v any, elems ...string) Step
 ```
 WriteJSONFile returns a Step that marshals v to JSON and writes it to the
 specified path with the specified permissions.
+
+
+```go
+func WritePlistFile(v any, elems ...string) Step
+```
+WritePlistFile returns a Step that marshals v to a plist and writes it to
+the specified path with the specified permissions.
 
 
 
