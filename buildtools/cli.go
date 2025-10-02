@@ -85,6 +85,13 @@ func (s SigningConfig) Signer() Signer {
 // PrintResultAndExitOnErrorf prints the results of running steps and exits with a non-zero
 // status if any of the steps failed.
 func (f CommonFlags) PrintResultAndExitOnErrorf(spec any, result RunResult) {
+	err := f.PrintResult(spec, result)
+	if err != nil {
+		os.Exit(1)
+	}
+}
+
+func (f CommonFlags) PrintResult(spec any, result RunResult) error {
 	err := result.Error()
 	verbose := f.Verbose || err != nil
 	if verbose {
@@ -101,7 +108,5 @@ func (f CommonFlags) PrintResultAndExitOnErrorf(spec any, result RunResult) {
 			fmt.Println(r.CommandLine())
 		}
 	}
-	if err != nil {
-		os.Exit(1)
-	}
+	return err
 }

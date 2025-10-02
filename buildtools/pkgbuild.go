@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 )
 
+// PkgBuild represents the pkgbuild tool and its configuration.
 type PkgBuild struct {
 	BuildDir        string `yaml:"build_dir"`        // Directory to use for building the package
 	Identifier      string `yaml:"identifier"`       // Package identifier, e.g. com.cloudeng.myapp
@@ -18,6 +19,7 @@ type PkgBuild struct {
 
 }
 
+// Clean returns a Step that removes the BuildDir directory.
 func (p PkgBuild) Clean() Step {
 	if len(p.BuildDir) == 0 {
 		return ErrorStep(fmt.Errorf("no build dir specified"), "rm", "-rf")
@@ -27,16 +29,20 @@ func (p PkgBuild) Clean() Step {
 	})
 }
 
+// Create returns the steps required to create the pkgbuild directory structure.
 func (p PkgBuild) Create() []Step {
 	steps := []Step{
 		MkdirAll(p.BuildDir),
 		MkdirAll(filepath.Join(p.BuildDir, "root", "Applications")),
+		MkdirAll(filepath.Join(p.BuildDir, "outputs")),
 		MkdirAll(filepath.Join(p.BuildDir, "scripts")),
 	}
 	return steps
 
 }
 
+// CopyApplication returns a Step that copies the specified application bundle to the
+// Applications directory within the package build root.
 func (p PkgBuild) CopyApplication(src string) Step {
 	if len(src) == 0 {
 		return NoopStep("no application specified")
@@ -44,6 +50,8 @@ func (p PkgBuild) CopyApplication(src string) Step {
 	return RSync(src, filepath.Join(p.BuildDir, "root", "Applications"))
 }
 
+// CopyScripts returns a Step that copies the specified scripts directory to the
+// scripts directory within the package build root.
 func (p PkgBuild) CopyScripts(src string) Step {
 	if len(src) == 0 {
 		return NoopStep("no scripts specified")
@@ -51,6 +59,8 @@ func (p PkgBuild) CopyScripts(src string) Step {
 	return RSync(src+"/", filepath.Join(p.BuildDir, "scripts"))
 }
 
+// WriteScript returns a Step that writes the specified script data to a file
+// with the given name in the scripts directory within the package build root.
 func (p PkgBuild) WriteScript(data []byte, name string) Step {
 	if len(data) == 0 {
 		return NoopStep("no script data specified")
@@ -61,6 +71,9 @@ func (p PkgBuild) WriteScript(data []byte, name string) Step {
 	return WriteFile(data, 0500, filepath.Join(p.BuildDir, "scripts", name))
 }
 
+// CopyLibrary returns a Step that copies the specified library directory to the
+// Library directory within the package build root.
+// Note that this is one way of installing files for use by the Installer.
 func (p PkgBuild) CopyLibrary(src, library string) Step {
 	if len(src) == 0 {
 		return NoopStep("no library specified")
@@ -68,26 +81,38 @@ func (p PkgBuild) CopyLibrary(src, library string) Step {
 	return RSync(src+"/", filepath.Join(p.BuildDir, "root", "Library", library))
 }
 
+// WritePlist returns a Step that writes the specified component plist configuration
+// to the component.plist file within the package build root.
 func (p PkgBuild) WritePlist(cfg []PkgComponentPlist) Step {
 	return writeInfoPlist(filepath.Join(p.BuildDir, "component.plist"), "component.plist", cfg)
 }
 
+// ScriptsPath returns the path to the scripts directory within the package build root.
 func (p PkgBuild) ScriptsPath() string {
 	return filepath.Join(p.BuildDir, "scripts")
 }
 
+// CreateLibrary returns a Step that creates the specified library directory
 func (p PkgBuild) CreateLibrary(library string) Step {
 	return MkdirAll(filepath.Join(p.BuildDir, "root", "Library", library))
 }
 
+// LibraryPath returns the path to the specified library directory within the package build root.
 func (p PkgBuild) LibraryPath(library string) string {
 	return filepath.Join(p.BuildDir, "root", "Library", library)
 }
 
+// OutputsPath returns the path to the outputs directory within the package build root.
+func (p PkgBuild) OutputsPath() string {
+	return filepath.Join(p.BuildDir, "outputs")
+}
+
+// Build returns a Step that builds the package using pkgbuild.
 func (p PkgBuild) Build(outputPath string) Step {
 	if len(outputPath) == 0 || len(p.InstallLocation) == 0 || len(p.Identifier) == 0 || len(p.Version) == 0 {
 		return ErrorStep(fmt.Errorf("one of outputPath, InstallLocation, Identifier or Version is not set: %+v", p), "pkgbuild")
 	}
+	pkgPath := filepath.Join(p.OutputsPath(), filepath.Base(outputPath))
 	args := []string{
 		"--root", filepath.Join(p.BuildDir, "root"),
 		"--component-plist", filepath.Join(p.BuildDir, "component.plist"),
@@ -95,19 +120,22 @@ func (p PkgBuild) Build(outputPath string) Step {
 		"--version", p.Version,
 		"--install-location", p.InstallLocation,
 		"--scripts", p.ScriptsPath(),
-		outputPath,
+		pkgPath,
 	}
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		return cmdRunner.Run(ctx, "pkgbuild", args...)
 	})
 }
 
+// Install returns a Step that installs the package using the system installer command
+// using sudo.
 func (p PkgBuild) Install(outputPath string) Step {
 	if len(p.InstallLocation) == 0 {
 		return ErrorStep(fmt.Errorf("no install location specified"), "open")
 	}
+	pkgPath := filepath.Join(p.OutputsPath(), filepath.Base(outputPath))
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
-		return cmdRunner.Run(ctx, "sudo", "installer", "-pkg", outputPath, "-target", p.InstallLocation)
+		return cmdRunner.Run(ctx, "sudo", "installer", "-pkg", pkgPath, "-target", p.InstallLocation)
 	})
 }
 

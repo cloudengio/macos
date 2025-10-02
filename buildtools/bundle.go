@@ -103,6 +103,12 @@ func (b AppBundle) Contents(elem ...string) string {
 	return filepath.Join(b.Path, "Contents", filepath.Join(elem...))
 }
 
+// Resources returns the path to the specified element within the app bundle's
+// Resources directory.
+func (b AppBundle) Resources(elem ...string) string {
+	return filepath.Join(b.Path, "Contents", "Resources", filepath.Join(elem...))
+}
+
 // CopyIcons returns steps to copy the specified icons into the app bundle's
 // Resources directory. If multiple icons are specified and the icon's BundleIcon
 // field is set or if there is only a single icon then it is copied to the location
