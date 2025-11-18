@@ -68,6 +68,13 @@ https://developer.apple.com/documentation/bundleresources/placing-content-in-a-b
 ### Methods
 
 ```go
+func (b AppBundle) Clean() Step
+```
+Clean returns a Step that removes the app bundle directory and all its
+contents.
+
+
+```go
 func (b AppBundle) Contents(elem ...string) string
 ```
 Contents returns the path to the specified element within the app bundle's
@@ -79,6 +86,13 @@ func (b AppBundle) CopyContents(src string, dst ...string) Step
 ```
 CopyContents returns the step required to copy a file into the app bundle
 dst is relative to the bundle Contents root.
+
+
+```go
+func (b AppBundle) CopyExecutable(src string) Step
+```
+CopyExecutable returns the step required to copy the executable referenced
+in the Info.plist into the app bundle.
 
 
 ```go
@@ -97,6 +111,22 @@ func (b AppBundle) Create() []Step
 ```
 Create returns the steps required to create the app bundle directory
 structure and Info.plist.
+
+
+```go
+func (b AppBundle) ExecutablePath() string
+```
+ExecutablePath returns the absolute path to the executable inside the app
+bundle that is referenced in the Info.plist.
+
+
+```go
+func (b AppBundle) InstallProvisioningProfile(profile string) Step
+```
+InstallProvisioningProfile returns a Step that copies
+the provisioning profile into the app bundle. See
+https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles
+for an explanation of provisioning profiles.
 
 
 ```go
@@ -124,6 +154,13 @@ dst is relative to the bundle Contents root.
 
 
 ```go
+func (b AppBundle) SignExecutable(signer Signer) Step
+```
+SignExecutable returns the step required to sign the executable within the
+app bundle.
+
+
+```go
 func (b AppBundle) VerifyContents(signer Signer, dst ...string) Step
 ```
 VerifyContents returns the step required to sign a file within the app
@@ -138,6 +175,8 @@ func (b AppBundle) VerifySignatures(signer Signer) []Step
 ```go
 func (b AppBundle) WriteInfoPlist() Step
 ```
+WriteInfoPlist returns the step required to write the Info.plist file for
+the app bundle.
 
 
 ```go
@@ -1088,6 +1127,13 @@ RSync returns a Step that synchronizes files and directories using rsync.
 func Rename(oldname, newname string) Step
 ```
 Rename returns a Step that renames a file using mv.
+
+
+```go
+func RmdirAll(d string) Step
+```
+RmdirAll returns a Step that removes an app bundle and all its contents
+using rm -rf.
 
 
 ```go
