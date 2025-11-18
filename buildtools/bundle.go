@@ -63,6 +63,7 @@ func (b AppBundle) WriteInfoPlistGitBuild(ctx context.Context, git Git) []Step {
 	return []Step{getHash, writePlist}
 }
 
+// WriteInfoPlist returns the step required to write the Info.plist file for the app bundle.
 func (b AppBundle) WriteInfoPlist() Step {
 	return writeInfoPlist(filepath.Join(b.Path, "Contents", "Info.plist"), b.Info)
 }
@@ -75,6 +76,42 @@ func (b AppBundle) CopyContents(src string, dst ...string) Step {
 		return ErrorStep(fmt.Errorf("source (%q) or destination (%q) not specified", src, dst), "cp", src, p)
 	}
 	return Copy(src, filepath.Join(b.Path, "Contents", p))
+}
+
+// CopyExecutable returns the step required to copy the executable referenced
+// in the Info.plist into the app bundle.
+func (b AppBundle) CopyExecutable(src string) Step {
+	if src == "" {
+		return ErrorStep(fmt.Errorf("source executable path not specified"), "cp", src, "")
+	}
+	dst := filepath.Join(b.Path, "Contents", "MacOS", b.Info.CFBundleExecutable)
+	return Copy(src, dst)
+}
+
+// SignExecutable returns the step required to sign the executable within the app bundle.
+func (b AppBundle) SignExecutable(signer Signer) Step {
+	return signer.SignPath(b.Path, filepath.Join("Contents", "MacOS", b.Info.CFBundleExecutable))
+}
+
+func (b AppBundle) ExecutablePath() string {
+	return filepath.Join(b.Path, "Contents", "MacOS", b.Info.CFBundleExecutable)
+}
+
+// InstallProvisioningProfile returns a Step that copies the provisioning profile
+// into the app bundle.
+// See https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles for an explanation of
+// provisioning profiles.
+func (b AppBundle) InstallProvisioningProfile(profile string) Step {
+	if profile == "" {
+		return ErrorStep(fmt.Errorf("provisioning profile path not specified"), "cp", profile, "")
+	}
+	dst := filepath.Join(b.Path, "Contents", "embedded.provisionprofile")
+	return Copy(profile, dst)
+}
+
+// Clean returns a Step that removes the app bundle directory and all its contents.
+func (b AppBundle) Clean() Step {
+	return RmdirAll(b.Path)
 }
 
 // SignContents returns the step required to sign a file within the app bundle,

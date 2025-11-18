@@ -22,6 +22,16 @@ func MkdirAll(d string) Step {
 	})
 }
 
+// RmdirAll returns a Step that removes a directory and all its contents using rm -rf.
+func RmdirAll(d string) Step {
+	if d == "" {
+		return ErrorStep(fmt.Errorf("cannot remove directory with empty name"), "rm", "-rf")
+	}
+	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+		return cmdRunner.Run(ctx, "rm", "-rf", d)
+	})
+}
+
 // DirExists returns a Step that checks for the existence of the directory.
 func DirExists(d string) Step {
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
