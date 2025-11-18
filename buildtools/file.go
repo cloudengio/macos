@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // MkdirAll returns a Step that creates a directory and all necessary parents using mkdir -p.
@@ -22,10 +23,19 @@ func MkdirAll(d string) Step {
 	})
 }
 
-// RmdirAll returns a Step that removes a directory and all its contents using rm -rf.
+// RmdirAll returns a Step that removes an app bundle and all its contents using rm -rf.
 func RmdirAll(d string) Step {
-	if d == "" {
-		return ErrorStep(fmt.Errorf("cannot remove directory with empty name"), "rm", "-rf")
+	if !strings.HasSuffix(d, ".app") {
+		return ErrorStep(fmt.Errorf("can only remove .app directories"), "rm", "-rf")
+	}
+	for _, dirs := range []string{"MacOS", "Resources"} {
+		if _, err := os.Stat(filepath.Join(d, "Contents", dirs)); err != nil {
+			return NoopStep("looks like the app bundle is empty")
+		}
+	}
+	macos := filepath.Join(d, "Contents", "MacOS")
+	if _, err := os.Stat(macos); err != nil {
+		return ErrorStep(fmt.Errorf("executable not found in app bundle: %s", macos), "rm", "-rf")
 	}
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		return cmdRunner.Run(ctx, "rm", "-rf", d)

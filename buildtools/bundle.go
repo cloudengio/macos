@@ -93,6 +93,8 @@ func (b AppBundle) SignExecutable(signer Signer) Step {
 	return signer.SignPath(b.Path, filepath.Join("Contents", "MacOS", b.Info.CFBundleExecutable))
 }
 
+// ExecutablePath returns the absolute path to the executable inside
+// the app bundle that is referenced in the Info.plist.
 func (b AppBundle) ExecutablePath() string {
 	return filepath.Join(b.Path, "Contents", "MacOS", b.Info.CFBundleExecutable)
 }

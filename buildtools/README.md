@@ -116,6 +116,8 @@ structure and Info.plist.
 ```go
 func (b AppBundle) ExecutablePath() string
 ```
+ExecutablePath returns the absolute path to the executable inside the app
+bundle that is referenced in the Info.plist.
 
 
 ```go
@@ -1130,8 +1132,8 @@ Rename returns a Step that renames a file using mv.
 ```go
 func RmdirAll(d string) Step
 ```
-RmdirAll returns a Step that removes a directory and all its contents using
-rm -rf.
+RmdirAll returns a Step that removes an app bundle and all its contents
+using rm -rf.
 
 
 ```go
