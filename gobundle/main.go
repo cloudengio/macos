@@ -12,7 +12,17 @@ import (
 	"strings"
 )
 
-var verbose bool
+var (
+	verbose    bool
+	verboseLog = &strings.Builder{}
+)
+
+func printf(format string, args ...any) {
+	fmt.Fprintf(verboseLog, format, args...)
+	if verbose {
+		fmt.Printf(format, args...)
+	}
+}
 
 func main() {
 	ctx := context.Background()
@@ -40,6 +50,9 @@ func main() {
 		mergedConfig = merged
 	}
 
+	cwd, _ := os.Getwd()
+	printf("verb: %v, current working directory: %s\n", verb, cwd)
+
 	switch verb {
 	case "__runsign__":
 		if len(os.Args) < 3 {
@@ -65,9 +78,6 @@ func main() {
 }
 
 func rungo(ctx context.Context, args []string) error {
-	if verbose {
-		fmt.Printf("go %v\n", strings.Join(args, " "))
-	}
 	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -91,6 +101,7 @@ func runAndExit(fn func() error) {
 		os.Exit(exitErr.ExitCode())
 	}
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", verboseLog.String())
 		exit(1, "error: %v\n", err)
 	}
 	os.Exit(0)

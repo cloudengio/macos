@@ -21,7 +21,7 @@ func handleGoBuild(ctx context.Context, merged []byte, args []string) error {
 	if _, err := os.Stat(binary); err != nil {
 		return fmt.Errorf("error finding expected binary: %v: %v", binary, err)
 	}
-	cfg, err := configForGoBuild(binary, merged)
+	cfg, err := configForGoBuild(binary, dashO, merged)
 	if err != nil {
 		return fmt.Errorf("error processing config for go build: %v", err)
 	}
@@ -35,13 +35,17 @@ func handleGoBuild(ctx context.Context, merged []byte, args []string) error {
 	if err := os.Symlink(b.ap.ExecutablePath(), binary); err != nil {
 		return fmt.Errorf("error creating symlink to signed binary: %v", err)
 	}
+	printf("Created symlink: %s -> %s\n", binary, b.ap.ExecutablePath())
 	return nil
 }
 
-func configForGoBuild(binary string, merged []byte) (config, error) {
+func configForGoBuild(binary, dashO string, merged []byte) (config, error) {
 	cfg, err := configFromMerged(merged, binary)
 	if err != nil {
 		return config{}, fmt.Errorf("error processing config for go build: %v", err)
+	}
+	if dashO != "" && isDir(dashO) {
+		cfg.Path = filepath.Join(dashO, cfg.Info.CFBundleExecutable+".app")
 	}
 	if cfg.Path == "" {
 		cfg.Path = cfg.Info.CFBundleExecutable + ".app"

@@ -35,7 +35,6 @@ func (b bundle) createAndSign(ctx context.Context, binary string) error {
 	if err != nil {
 		return fmt.Errorf("error marshaling config: %v", err)
 	}
-	signer := b.cfg.Signer()
 	b.stepRunner.AddSteps(b.ap.Clean())
 	b.stepRunner.AddSteps(b.ap.Create()...)
 	if b.cfg.ProvisioningProfile != "" {
@@ -46,15 +45,18 @@ func (b bundle) createAndSign(ctx context.Context, binary string) error {
 		buildtools.WriteFile(configData, 0644,
 			b.ap.Resources("gobundle.yml")))
 	b.stepRunner.AddSteps(b.ap.WriteInfoPlist(),
-		b.ap.CopyExecutable(binary),
-		b.ap.SignExecutable(signer),
-		b.ap.Sign(signer),
-	)
+		b.ap.CopyExecutable(binary))
+
+	if b.cfg.Identity != "" {
+		signer := b.cfg.Signer()
+		b.stepRunner.AddSteps(
+			b.ap.SignExecutable(signer),
+			b.ap.Sign(signer),
+		)
+	}
 	results := b.stepRunner.Run(ctx, buildtools.NewCommandRunner())
-	if verbose {
-		for _, r := range results {
-			fmt.Printf("%s\n%s", r.CommandLine(), r.Output())
-		}
+	for _, r := range results {
+		printf("%s\n%s", r.CommandLine(), r.Output())
 	}
 	return results.Error()
 }

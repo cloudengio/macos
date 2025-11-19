@@ -33,16 +33,15 @@ func handleGoRun(ctx context.Context, args []string) {
 }
 
 func handleGoRunExec(ctx context.Context, merged []byte, binary string) error {
-	cfg, err := configForGoBuild(binary, merged)
-	if err != nil {
-		return fmt.Errorf("error processing config for go run: %v", err)
-	}
 	tmpDir, err := os.MkdirTemp("", "gobundle-run")
 	if err != nil {
 		return fmt.Errorf("error creating temp dir: %v", err)
 	}
+	cfg, err := configForGoBuild(binary, tmpDir, merged)
+	if err != nil {
+		return fmt.Errorf("error processing config for go run: %v", err)
+	}
 	defer os.RemoveAll(tmpDir)
-	cfg.Path = tmpDir
 	b := newBundle(cfg)
 	if err := b.createAndSign(ctx, binary); err != nil {
 		return fmt.Errorf("error creating and signing bundle: %v", err)

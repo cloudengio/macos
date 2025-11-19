@@ -14,8 +14,7 @@ import (
 
 const usage = `Usage: gobundle --help|run|build|install|... [options]`
 
-const para1 = `
-gobundle makes it easy (and transparent) to create go applications
+const para1 = `gobundle makes it easy (and transparent) to create go applications
 as macOS bundles and hence to be signed with entitlements and
 with embedded provisioning profiles.
 It is intended to ease the development flow whilst working with the
@@ -103,13 +102,13 @@ Examples:
 
 func printHelpAndExit() {
 	out := strings.Builder{}
-	out.WriteString(usage)
+	out.WriteString(usage + "\n\n")
 	out.WriteString(linewrap.Block(2, 80, para1))
 	out.WriteString(linewrap.Block(2, 80, para2))
 	out.WriteString(linewrap.Block(2, 80, para3))
 	out.WriteString(linewrap.Verbatim(2, para4))
 	out.WriteString(linewrap.Block(2, 80, para5))
 	out.WriteString(linewrap.Verbatim(2, para6))
-	fmt.Println(out.String())
+	fmt.Fprintln(os.Stderr, out.String())
 	os.Exit(1)
 }

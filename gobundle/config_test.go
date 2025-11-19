@@ -35,25 +35,27 @@ func TestLoadAndMergeConfigs(t *testing.T) {
 		}
 	}()
 
-	sharedConfg := `
+	sharedConfig := `
 identity: shared-identity
 entitlements:
   com.apple.security.app-sandbox: true
 `
 	appConfig := `
-CFBundleIdentifier: com.shared.bundle
-CFBundleDisplayName: My App
+info.plist:
+  CFBundleIdentifier: com.shared.bundle
+  CFBundleDisplayName: My App
 `
 
 	mergedConfig := `
 identity: shared-identity
 entitlements:
   com.apple.security.app-sandbox: true
-CFBundleIdentifier: com.shared.bundle
-CFBundleDisplayName: My App
+info.plist:
+  CFBundleIdentifier: com.shared.bundle
+  CFBundleDisplayName: My App
 `
 
-	newConfigFile(t, tmpDir, "gobundle-shared.yaml", sharedConfg)
+	newConfigFile(t, tmpDir, "gobundle-shared.yaml", sharedConfig)
 	newConfigFile(t, tmpDir, "gobundle-app.yaml", appConfig)
 
 	// load from files in current directory.
@@ -69,7 +71,7 @@ CFBundleDisplayName: My App
 
 func parseConfig(t *testing.T, merged []byte) config {
 	t.Helper()
-	cfg, err := configForGoBuild("binary", merged)
+	cfg, err := configForGoBuild("binary", "", merged)
 	if err != nil {
 		t.Fatalf("failed to parse config: %v", err)
 	}

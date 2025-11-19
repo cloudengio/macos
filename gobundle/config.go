@@ -84,9 +84,7 @@ func readAndMergeConfigs() ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling merged config: %v", err)
 	}
-	if verbose {
-		fmt.Fprintf(os.Stderr, "Merged config from %s and %s:\n%s\n", sharedFile, appFile, merged)
-	}
+	printf("Merged config from %s and %s:\n%s\n", sharedFile, appFile, merged)
 	return merged, nil
 }
 
@@ -121,7 +119,9 @@ func configFromMerged(merged []byte, binary string) (config, error) {
 	binary = filepath.Base(binary)
 	rawInfo := map[string]any{}
 	if plist := raw["info.plist"]; plist != nil {
-		rawInfo = raw["info.plist"].(map[string]any)
+		rawInfo = plist.(map[string]any)
+	} else {
+		raw["info.plist"] = rawInfo
 	}
 	provideDefault(rawInfo, "CFBundleName", binary)
 	provideDefault(rawInfo, "CFBundlePackageType", "APPL")
