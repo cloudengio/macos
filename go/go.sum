@@ -1,5 +1,7 @@
 cloudeng.io/cmdutil v0.0.0-20251119053757-d58e85373552 h1:BegHV/eybidKU5qobpKtCWkpAeL+YpW/Um08fCuRMOE=
 cloudeng.io/cmdutil v0.0.0-20251119053757-d58e85373552/go.mod h1:DPmPt2BHWbkbVQ96AwvESlACDFHncHvXNqdFs0/e/68=
+cloudeng.io/os v0.0.0-20251119175537-cb617f2ab9c4 h1:Cs19rx9GwWOe+Vlq3kcfagpXOL5RpYo0ZKMkBwMwhNE=
+cloudeng.io/os v0.0.0-20251119175537-cb617f2ab9c4/go.mod h1:UuSncaIdaiCWJbgz8sOcFQF1BhMCS60S5KjKFSOwW1c=
 cloudeng.io/text v0.0.13 h1:ivKGX9ssgYKrXQt+csSOA/HTmsdbxrVUnkCQyikI7ok=
 cloudeng.io/text v0.0.13/go.mod h1:6rDG6qEzGxe8ePNBz7VwSf0ps9p9ihDB/uXSFR0CJvk=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=

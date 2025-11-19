@@ -176,17 +176,23 @@ func runGoBundle(t *testing.T, cmd *exec.Cmd, sharedCfg, appCfg string) string {
 	return string(out)
 }
 
+func getenv(env []string, key string) string {
+	prefix := key + "="
+	for _, e := range env {
+		if after, ok := strings.CutPrefix(e, prefix); ok {
+			return after
+		}
+	}
+	return ""
+}
+
 func runExample(t *testing.T, binary, argStr string) {
 	t.Helper()
-	located, err := exec.LookPath(binary)
-	if err != nil {
-		t.Fatalf("error finding binary: %v: in %s: %v", binary, os.Getenv("PATH"), err)
-	}
-	t.Logf("runExample: %v -> %v\n", binary, located)
-	cmd := exec.Command(located, argStr)
+	cmd := exec.Command(binary, argStr)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("example run failed for %v: %v (%s)", located, err, string(out))
+		t.Logf("PATH: %s\n", os.Getenv("PATH"))
+		t.Fatalf("example run failed for %v: %v (%s)", binary, err, string(out))
 	}
 	if got, want := string(out), "hello\n"; !strings.Contains(got, want) {
 		t.Errorf("unexpected output:\nGot:\n%s\nExpected:\n%s", got, want)
@@ -247,7 +253,6 @@ func TestGoBuild(t *testing.T) {
 
 	// Test with bundle: in the config
 	tmpDir = t.TempDir() // avoid conflicts with previous test
-
 	wd := newWorkingDir(t)
 	sharedCfg, appCfg, argStr = setupConfig(t, tmpDir, filepath.Join(tmpDir,
 		"another-directory/eg.app"))
@@ -256,7 +261,7 @@ func TestGoBuild(t *testing.T) {
 	out = runGoBundle(t, cmd, sharedCfg, appCfg)
 	t.Logf("gobundle build with bundle: output:\n%s\n", out)
 	inspectBundle(t, filepath.Join(tmpDir, "another-directory", "eg.app"), "example")
-	runExample(t, "example", argStr) // the soflink will be in the current directory
+	runExample(t, filepath.Join(wd, "example"), argStr) // the soflink will be in the current directory
 	verifySoftlink(t, filepath.Join(wd, "example"), filepath.Join(tmpDir, "another-directory", "eg.app"), "example")
 
 	// Test without -o or bundle:, the bundle and example will be

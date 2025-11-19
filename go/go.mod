@@ -8,3 +8,5 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	howett.net/plist v1.0.1
 )
+
+require cloudeng.io/os v0.0.0-20251119175537-cb617f2ab9c4 // indirect
