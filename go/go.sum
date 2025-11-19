@@ -4,6 +4,8 @@ cloudeng.io/os v0.0.0-20251119175537-cb617f2ab9c4 h1:Cs19rx9GwWOe+Vlq3kcfagpXOL5
 cloudeng.io/os v0.0.0-20251119175537-cb617f2ab9c4/go.mod h1:UuSncaIdaiCWJbgz8sOcFQF1BhMCS60S5KjKFSOwW1c=
 cloudeng.io/text v0.0.13 h1:ivKGX9ssgYKrXQt+csSOA/HTmsdbxrVUnkCQyikI7ok=
 cloudeng.io/text v0.0.13/go.mod h1:6rDG6qEzGxe8ePNBz7VwSf0ps9p9ihDB/uXSFR0CJvk=
+github.com/cloudengio/go-keychain v0.0.0-20251119184527-ddc7d2e1d0cb h1:1YMjGqR77dAg1Cu0ooIH7crlh75y/p7ry23bndtHojY=
+github.com/cloudengio/go-keychain v0.0.0-20251119184527-ddc7d2e1d0cb/go.mod h1:hGaE9Nd6EP9OJuiIvSaiB8dcX/RDTgkXRObngT649ng=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

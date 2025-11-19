@@ -9,4 +9,7 @@ require (
 	howett.net/plist v1.0.1
 )
 
-require cloudeng.io/os v0.0.0-20251119175537-cb617f2ab9c4 // indirect
+require (
+	cloudeng.io/os v0.0.0-20251119175537-cb617f2ab9c4 // indirect
+	github.com/cloudengio/go-keychain v0.0.0-20251119184527-ddc7d2e1d0cb // indirect
+)
