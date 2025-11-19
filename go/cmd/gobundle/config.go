@@ -80,8 +80,9 @@ func readAndMergeConfigs() ([]byte, error) {
 	if err != nil && !os.IsNotExist(err) {
 		return nil, fmt.Errorf("error loading app config: %v", err)
 	}
-	deepMergeMaps(app, shared)
-	merged, err := yaml.Marshal(app)
+	deepMergeMaps(shared, app)
+	deepExpandEnvVars(shared)
+	merged, err := yaml.Marshal(shared)
 	if err != nil {
 		return nil, fmt.Errorf("error marshaling merged config: %v", err)
 	}
@@ -102,8 +103,7 @@ func deepMergeMaps(dst, src map[string]any) {
 				}
 			}
 		}
-		// If no recursion or types don't match for recursion,
-		// or key is new, override/set the value
+		// Handle lists.
 		if _, islist := srcVal.([]any); islist {
 			var dstList []any
 			if existing, ok := dst[key]; ok {
@@ -112,6 +112,7 @@ func deepMergeMaps(dst, src map[string]any) {
 			dst[key] = append(dstList, srcVal.([]any)...)
 			continue
 		}
+		// Override/set the value
 		dst[key] = srcVal
 	}
 }
@@ -139,9 +140,6 @@ func configFromMerged(merged []byte, binary string) (config, error) {
 	provideDefault(rawInfo, "CFBundleDisplayName", binary)
 	provideDefault(rawInfo, "CFBundleVersion", "0.0.0")
 	provideDefault(rawInfo, "LSMinimumSystemVersion", "10.15")
-
-	deepExpandEnvVars(raw)
-
 	updated, err := yaml.Marshal(raw)
 	if err != nil {
 		return config{}, fmt.Errorf("error marshaling updated config: %v", err)
