@@ -60,6 +60,10 @@ For example:
     profile: $HOME/Downloads/example_app.provisionprofile
     info.plist:
         CFBundleIdentifier: <your-team-id>com.you.example
+
+Environment variables can be used in any string value and are expanded before use.
+This makes it possible to hide sensitive information such as a signing identity
+from checked in files.
 `
 
 const para5 = `
