@@ -104,7 +104,11 @@ func deepMergeMaps(dst, src map[string]any) {
 		// If no recursion or types don't match for recursion,
 		// or key is new, override/set the value
 		if _, islist := srcVal.([]any); islist {
-			dst[key] = append(dst[key].([]any), srcVal.([]any)...)
+			var dstList []any
+			if existing, ok := dst[key]; ok {
+				dstList = existing.([]any)
+			}
+			dst[key] = append(dstList, srcVal.([]any)...)
 			continue
 		}
 		dst[key] = srcVal
@@ -117,10 +121,15 @@ func configFromMerged(merged []byte, binary string) (config, error) {
 		return config{}, fmt.Errorf("error unmarshaling merged config: %v", err)
 	}
 	binary = filepath.Base(binary)
-	rawInfo := map[string]any{}
-	if plist := raw["info.plist"]; plist != nil {
-		rawInfo = plist.(map[string]any)
+	var rawInfo map[string]any
+	if plist, ok := raw["info.plist"]; ok && plist != nil {
+		var isMap bool
+		rawInfo, isMap = plist.(map[string]any)
+		if !isMap {
+			return config{}, fmt.Errorf("info.plist must be a map")
+		}
 	} else {
+		rawInfo = map[string]any{}
 		raw["info.plist"] = rawInfo
 	}
 	provideDefault(rawInfo, "CFBundleName", binary)

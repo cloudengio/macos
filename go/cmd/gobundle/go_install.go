@@ -49,7 +49,7 @@ func deterimineInstallBinary(rest []string) (string, string) {
 		return installDir, filepath.Join(installDir, binary)
 	}
 	gopath := os.Getenv("GOPATH")
-	if len(gopath) == 0 && isDir(filepath.Join(gopath, "bin")) {
+	if len(gopath) > 0 && isDir(filepath.Join(gopath, "bin")) {
 		return filepath.Join(gopath, "bin"), filepath.Join(gopath, "bin", binary)
 	}
 	home := os.Getenv("HOME")
