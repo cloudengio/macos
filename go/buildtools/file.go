@@ -70,7 +70,7 @@ func IsValidIconSetDir(id IconSetDir) Step {
 // Rename returns a Step that renames a file using mv.
 func Rename(oldname, newname string) Step {
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
-		return cmdRunner.Run(ctx, "mv", string(oldname), newname)
+		return cmdRunner.Run(ctx, "mv", oldname, newname)
 	})
 }
 
@@ -99,12 +99,12 @@ func RSync(src, dst string, args ...string) Step {
 
 // WriteFile returns a Step that writes data to the specified path with the specified permissions.
 func WriteFile(data []byte, perm os.FileMode, elems ...string) Step {
-	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+	return StepFunc(func(_ context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		path := filepath.Join(elems...)
 		if cmdRunner.DryRun() {
 			return NewStepResult("write "+path, []string{path}, nil, nil), nil
 		}
-		err := os.WriteFile(path, data, os.FileMode(perm))
+		err := os.WriteFile(path, data, perm)
 		return NewStepResult("os.WriteFile", []string{path, fmt.Sprintf("%o", perm)}, nil, err), err
 	})
 }

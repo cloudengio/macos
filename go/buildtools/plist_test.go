@@ -93,7 +93,7 @@ func TestStepExecution(t *testing.T) {
 	runner := buildtools.NewCommandRunner()
 
 	// Create a simple step that just checks if a file exists
-	step := buildtools.StepFunc(func(ctx context.Context, cmdRunner *buildtools.CommandRunner) (buildtools.StepResult, error) {
+	step := buildtools.StepFunc(func(_ context.Context, _ *buildtools.CommandRunner) (buildtools.StepResult, error) {
 		_, err := os.Stat(tmpDir)
 		return buildtools.NewStepResult("stat", []string{tmpDir}, nil, err), err
 	})

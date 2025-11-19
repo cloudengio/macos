@@ -38,7 +38,7 @@ func TestFileOperations(t *testing.T) {
 	// Test file creation
 	testContent := []byte("test content")
 	testFilePath := filepath.Join(tempDir, "test_file.txt")
-	if err := os.WriteFile(testFilePath, testContent, 0644); err != nil {
+	if err := os.WriteFile(testFilePath, testContent, 0600); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
@@ -66,7 +66,7 @@ func TestFileOperations(t *testing.T) {
 	}
 
 	// Test command execution with StepFunc
-	cmdStep := buildtools.StepFunc(func(ctx context.Context, cmdRunner *buildtools.CommandRunner) (buildtools.StepResult, error) {
+	cmdStep := buildtools.StepFunc(func(_ context.Context, _ *buildtools.CommandRunner) (buildtools.StepResult, error) {
 		return buildtools.NewStepResult("test command", []string{"arg1", "arg2"}, []byte("test output"), nil), nil
 	})
 
@@ -81,7 +81,7 @@ func TestFileOperations(t *testing.T) {
 	if len(result.Args()) != 2 || result.Args()[0] != "arg1" || result.Args()[1] != "arg2" {
 		t.Fatalf("Args mismatch, got %v, want %v", result.Args(), []string{"arg1", "arg2"})
 	}
-	if string(result.Output()) != "test output" {
-		t.Fatalf("output mismatch, got %q, want %q", string(result.Output()), "test output")
+	if result.Output() != "test output" {
+		t.Fatalf("output mismatch, got %q, want %q", result.Output(), "test output")
 	}
 }

@@ -252,7 +252,7 @@ func (r *CommandRunner) WriteFile(ctx context.Context, path string, data []byte,
 	if err := cmd.Run(); err != nil {
 		return "", err
 	}
-	if err := exec.CommandContext(ctx, "chmod", fmt.Sprintf("%o", perm), path).Run(); err != nil {
+	if err := exec.CommandContext(ctx, "chmod", fmt.Sprintf("%o", perm), path).Run(); err != nil { //nolint:gosec // G204
 		return "", err
 	}
 	return fmt.Sprintf("wrote %d bytes to %q with perm %o", len(data), path, perm), nil

@@ -4,8 +4,8 @@
 
 package keychain
 
-// KeychainType represents the type of keychain to use.
-type KeychainType int
+// Type represents the type of keychain to use.
+type Type int
 
 // SecureNoteReader defines the interface for reading secure notes from the keychain.
 type SecureNoteReader interface {

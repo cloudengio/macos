@@ -14,7 +14,7 @@ type Suffix string
 
 // Assert returns a Step that checks if the provided path has the specified suffix.
 func (s Suffix) Assert(path string) Step {
-	p := string(path)
+	p := path
 	return StepFunc(func(_ context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		cmd := fmt.Sprintf("filepath.Ext(%q) == %q", p, s)
 		if cmdRunner.DryRun() {

@@ -76,7 +76,7 @@ func TestAppBundle(t *testing.T) {
 	// Test copying content
 	// Create a test file to copy into the bundle
 	testFile := filepath.Join(tempDir, "test.txt")
-	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
+	if err := os.WriteFile(testFile, []byte("test content"), 0600); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 

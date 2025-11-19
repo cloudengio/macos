@@ -30,7 +30,7 @@ func (b AppBundle) Create() []Step {
 	return steps
 }
 
-func (b AppBundle) WriteInfoPlistGitBuild(ctx context.Context, git Git) []Step {
+func (b AppBundle) WriteInfoPlistGitBuild(_ context.Context, git Git) []Step {
 	versionCh := make(chan string, 1)
 
 	getHash := StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {

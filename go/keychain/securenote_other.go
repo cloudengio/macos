@@ -15,13 +15,13 @@ type options struct{}
 
 type T struct{}
 
-// NewKeychain creates a new Keychain.
-func NewKeychain(typ KeychainType, account string, opts ...Option) *T {
+// New creates a new Keychain.
+func New(typ Type, account string, opts ...Option) *T {
 	return &T{}
 }
 
-// NewKeychainReadonly creates a new readonly Keychain.
-func NewKeychainReadonly(typ KeychainType, account string, opts ...Option) SecureNoteReader {
+// NewReadonly creates a new readonly Keychain.
+func NewReadonly(typ Type, account string, opts ...Option) SecureNoteReader {
 	return T{}
 }
 
