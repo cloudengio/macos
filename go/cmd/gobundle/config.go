@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"cloudeng.io/macos/buildtools"
 	"gopkg.in/yaml.v3"
@@ -138,6 +139,9 @@ func configFromMerged(merged []byte, binary string) (config, error) {
 	provideDefault(rawInfo, "CFBundleDisplayName", binary)
 	provideDefault(rawInfo, "CFBundleVersion", "0.0.0")
 	provideDefault(rawInfo, "LSMinimumSystemVersion", "10.15")
+
+	deepExpandEnvVars(raw)
+
 	updated, err := yaml.Marshal(raw)
 	if err != nil {
 		return config{}, fmt.Errorf("error marshaling updated config: %v", err)
@@ -147,6 +151,43 @@ func configFromMerged(merged []byte, binary string) (config, error) {
 		return config{}, fmt.Errorf("error unmarshaling merged config: %v", err)
 	}
 	return cfg, nil
+}
+
+func deepExpandEnvVars(cfg map[string]any) {
+	for key, val := range cfg {
+		cfg[key] = expandVal(val)
+	}
+}
+
+func expandVal(val any) any {
+	switch v := val.(type) {
+	case string:
+		expanded := os.ExpandEnv(v)
+		return handleExpandedTypes(expanded)
+	case map[string]any:
+		deepExpandEnvVars(v)
+		return v
+	case []any:
+		for i, item := range v {
+			v[i] = expandVal(item)
+		}
+		return v
+	}
+	return val
+}
+
+func handleExpandedTypes(val string) any {
+	switch val {
+	case "true", "True", "TRUE":
+		return true
+	case "false", "False", "FALSE":
+		return false
+	default:
+		if i, err := strconv.Atoi(val); err == nil {
+			return i
+		}
+		return val
+	}
 }
 
 func provideDefault(raw map[string]any, key, defaultValue string) {
