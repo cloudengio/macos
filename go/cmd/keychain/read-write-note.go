@@ -1,0 +1,116 @@
+// Copyright 2025 cloudeng llc. All rights reserved.
+// Use of this source code is governed by the Apache-2.0
+// license that can be found in the LICENSE file.
+
+//go:build darwin
+
+package main
+
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	"os/user"
+	"path/filepath"
+
+	"cloudeng.io/macos/keychain"
+)
+
+var (
+	write         bool
+	account       string
+	service       string
+	keychainType  string
+	updateInPlace bool
+)
+
+func usage() {
+	name := filepath.Base(os.Args[0])
+	fmt.Printf("%s <flags> [filename|-]\n", name)
+	flag.PrintDefaults()
+}
+
+func usageAndExit() {
+	usage()
+	os.Exit(1)
+}
+
+func initFlags() {
+	flag.BoolVar(&write, "write", false, "set to true to write a note instead of reading")
+	flag.StringVar(&keychainType, "keychain-type", "file", "keychain type: file, data-protection, or icloud")
+	flag.StringVar(&account, "account", "", "keychain account that the note belongs to")
+	flag.StringVar(&service, "service", "", "keychain service that the note belongs to")
+	flag.BoolVar(&updateInPlace, "update-in-place", false, "set to true to update existing note in place")
+
+}
+
+func getUser() (string, error) {
+	user, err := user.Current()
+	if err != nil {
+		return "", err
+	}
+	return user.Username, nil
+}
+
+func main() {
+	fmt.Println("hello")
+	cwd, _ := os.Getwd()
+	fmt.Printf("current working directory: %s\n", cwd)
+	ctx := context.Background()
+	initFlags()
+	flag.Parse()
+	if len(service) == 0 {
+		fmt.Printf("-service must be specified\n")
+		usageAndExit()
+	}
+	kt, err := keychain.ParseKeychainType(keychainType)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		usageAndExit()
+	}
+	if len(account) == 0 {
+		var err error
+		account, err = getUser()
+		if err != nil {
+			fmt.Printf("error getting current user: %v\n", err)
+			return
+		}
+	}
+	args := flag.Args()
+	if write {
+		if len(args) != 1 {
+			fmt.Printf("need a single filename argument\n")
+			usageAndExit()
+		}
+		writeNote(ctx, kt, args)
+		return
+	}
+	readNote(ctx, kt)
+}
+
+func writeNote(ctx context.Context, kt keychain.KeychainType, args []string) {
+	kc := keychain.NewKeychain(kt, account, keychain.WithUpdateInPlace(updateInPlace))
+	data, err := os.ReadFile(args[0])
+	if err != nil {
+		fmt.Printf("error reading file: %v\n", err)
+		return
+	}
+	//data := []byte(fmt.Sprintf("This is a test note on %s", kt))
+	err = kc.WriteSecureNote(service, data)
+	if err != nil {
+		fmt.Printf("error writing note: account %s, service %s, error: %v\n", account, service, err)
+		return
+	}
+	fmt.Printf("note written successfully: account %s, service %s\n", account, service)
+}
+
+func readNote(ctx context.Context, kt keychain.KeychainType) {
+	kc := keychain.NewKeychainReadonly(kt, account)
+	data, err := kc.ReadSecureNote(service)
+	if err != nil {
+		fmt.Printf("error reading note: %v\n", err)
+		return
+	}
+	fmt.Printf("%s\n", data)
+}
