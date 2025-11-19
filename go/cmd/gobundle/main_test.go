@@ -178,10 +178,15 @@ func runGoBundle(t *testing.T, cmd *exec.Cmd, sharedCfg, appCfg string) string {
 
 func runExample(t *testing.T, binary, argStr string) {
 	t.Helper()
-	cmd := exec.Command(binary, argStr)
+	located, err := exec.LookPath(binary)
+	if err != nil {
+		t.Fatalf("error finding binary: %v: %v", binary, err)
+	}
+	t.Logf("runExample: %v -> %v\n", binary, located)
+	cmd := exec.Command(located, argStr)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("gobundle run failed: %v (stderr: %s)", err, string(out))
+		t.Fatalf("example run failed for %v: %v (%s)", located, err, string(out))
 	}
 	if got, want := string(out), "hello\n"; !strings.Contains(got, want) {
 		t.Errorf("unexpected output:\nGot:\n%s\nExpected:\n%s", got, want)
