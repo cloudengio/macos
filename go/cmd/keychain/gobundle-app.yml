@@ -1,0 +1,8 @@
+identity: "${CLOUDENG_SIGNING}"
+profile: "${CLOUDENG_EXAMPLE_PROFILE}"
+entitlements:
+   com.apple.security.app-sandbox: true
+   keychain-access-groups:
+     - "${CLOUDENG_DEVID}.*"
+info.plist:
+  CFBundleIdentifier: "${CLOUDENG_DEVID}.io.cloudeng.example"
