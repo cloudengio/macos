@@ -1,10 +1,8 @@
 # [cloudeng.io/macos/cmd/keychain](https://pkg.go.dev/cloudeng.io/macos/cmd/keychain?tab=doc)
 
 
-hello current working directory:
-/Users/cnicolaou/LocalOnly/dev/github.com/cloudengio/macos/go/cmd/keychain
 Usage of
-/var/folders/dy/3b1mfs651m1cdwzr6xd9j4dm0000gn/T/go-build3205138401/b001/exe/keychain:
+/var/folders/dy/3b1mfs651m1cdwzr6xd9j4dm0000gn/T/go-build3940217585/b001/exe/keychain:
 
     -account string
       	`keychain` account that the note belongs to

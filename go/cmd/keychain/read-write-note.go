@@ -7,7 +7,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -54,62 +53,58 @@ func getUser() (string, error) {
 }
 
 func main() {
-	fmt.Println("hello")
-	cwd, _ := os.Getwd()
-	fmt.Printf("current working directory: %s\n", cwd)
-	ctx := context.Background()
 	initFlags()
 	flag.Parse()
 	if len(service) == 0 {
-		fmt.Printf("-service must be specified\n")
+		fmt.Fprintf(os.Stderr, "-service must be specified\n")
 		usageAndExit()
 	}
 	kt, err := keychain.ParseKeychainType(keychainType)
 	if err != nil {
-		fmt.Printf("%v\n", err)
+		fmt.Fprintf(os.Stderr, "%v\n", err)
 		usageAndExit()
 	}
 	if len(account) == 0 {
 		var err error
 		account, err = getUser()
 		if err != nil {
-			fmt.Printf("error getting current user: %v\n", err)
+			fmt.Fprintf(os.Stderr, "error getting current user: %v\n", err)
 			return
 		}
 	}
 	args := flag.Args()
 	if write {
 		if len(args) != 1 {
-			fmt.Printf("need a single filename argument\n")
+			fmt.Fprintf(os.Stderr, "need a single filename argument\n")
 			usageAndExit()
 		}
-		writeNote(ctx, kt, args)
+		writeNote(kt, args)
 		return
 	}
-	readNote(ctx, kt)
+	readNote(kt)
 }
 
-func writeNote(ctx context.Context, kt keychain.KeychainType, args []string) {
+func writeNote(kt keychain.KeychainType, args []string) {
 	kc := keychain.NewKeychain(kt, account, keychain.WithUpdateInPlace(updateInPlace))
 	data, err := os.ReadFile(args[0])
 	if err != nil {
-		fmt.Printf("error reading file: %v\n", err)
+		fmt.Fprintf(os.Stderr, "error reading file: %v\n", err)
 		return
 	}
 	//data := []byte(fmt.Sprintf("This is a test note on %s", kt))
 	err = kc.WriteSecureNote(service, data)
 	if err != nil {
-		fmt.Printf("error writing note: account %s, service %s, error: %v\n", account, service, err)
+		fmt.Fprintf(os.Stderr, "error writing note: account %s, service %s, error: %v\n", account, service, err)
 		return
 	}
 	fmt.Printf("note written successfully: account %s, service %s\n", account, service)
 }
 
-func readNote(ctx context.Context, kt keychain.KeychainType) {
+func readNote(kt keychain.KeychainType) {
 	kc := keychain.NewKeychainReadonly(kt, account)
 	data, err := kc.ReadSecureNote(service)
 	if err != nil {
-		fmt.Printf("error reading note: %v\n", err)
+		fmt.Fprintf(os.Stderr, "error reading note: %v\n", err)
 		return
 	}
 	fmt.Printf("%s\n", data)
