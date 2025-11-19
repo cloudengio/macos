@@ -4,7 +4,8 @@
 
 //go:build darwin
 
-// Package keychain provides support for working with the macos keychain.
+// Package keychain provides a simple interface for reading and writing
+// secure notes to the macOS keychain.
 package keychain
 
 // The following are important references for working with the macOS keychain:
@@ -26,7 +27,7 @@ type Option func(o *options)
 
 type options struct {
 	updateInPlace bool
-	accessibility Accessiblity
+	accessibility Accessibility
 }
 
 func WithUpdateInPlace(v bool) Option {
@@ -35,14 +36,11 @@ func WithUpdateInPlace(v bool) Option {
 	}
 }
 
-func WithAccessibility(v Accessiblity) Option {
+func WithAccessibility(v Accessibility) Option {
 	return func(o *options) {
 		o.accessibility = v
 	}
 }
-
-// KeychainType represents the type of keychain to use.
-type KeychainType int
 
 const (
 	// KeychainFileBased represents the file-based keychain.
@@ -60,8 +58,8 @@ const (
 	KeychainICloud
 )
 
-// Accessible is the items accessibility
-type Accessiblity int
+// Accessibility is the items accessibility
+type Accessibility int
 
 const (
 	AccessibleDefault                        = keychain.AccessibleDefault
@@ -71,7 +69,7 @@ const (
 	AccessibleWhenPasscodeSetThisDeviceOnly  = keychain.AccessibleWhenPasscodeSetThisDeviceOnly
 	AccessibleWhenUnlockedThisDeviceOnly     = keychain.AccessibleWhenUnlockedThisDeviceOnly
 	AccessibleAfterFirstUnlockThisDeviceOnly = keychain.AccessibleAfterFirstUnlockThisDeviceOnly
-	AccessibleAccessibleAlwaysThisDeviceOnly
+	AccessibleAccessibleAlwaysThisDeviceOnly = keychain.AccessibleAccessibleAlwaysThisDeviceOnly
 )
 
 func (t KeychainType) String() string {
@@ -106,11 +104,6 @@ type T struct {
 	typ     KeychainType
 	opts    options
 	account string
-}
-
-// SecureNoteReader defines the interface for reading secure notes from the keychain.
-type SecureNoteReader interface {
-	ReadSecureNote(service string) (data []byte, err error)
 }
 
 func newKeychain(readonly bool, typ KeychainType, account string, opts ...Option) *T {

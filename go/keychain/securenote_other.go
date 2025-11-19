@@ -8,10 +8,31 @@ package keychain
 
 import "errors"
 
-func WriteSecureNote(_, _ string, _ []byte) error {
+// Option represents an option for configuring a keychain.T
+type Option func(o *options)
+
+type options struct{}
+
+type T struct{}
+
+// NewKeychain creates a new Keychain.
+func NewKeychain(typ KeychainType, account string, opts ...Option) *T {
+	return &T{}
+}
+
+// NewKeychainReadonly creates a new readonly Keychain.
+func NewKeychainReadonly(typ KeychainType, account string, opts ...Option) SecureNoteReader {
+	return T{}
+}
+
+func (u T) ReadSecureNote(service string) ([]byte, error) {
+	return nil, errors.New("not implemented on this platform")
+}
+
+func (u T) UpdateSecureNote(service string, data []byte) error {
 	return errors.New("not implemented on this platform")
 }
 
-func ReadSecureNote(_, _ string) ([]byte, error) {
-	return nil, errors.New("not implemented on this platform")
+func (u T) WriteSecureNote(service, account string, data []byte) error {
+	return errors.New("not implemented on this platform")
 }

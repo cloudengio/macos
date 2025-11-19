@@ -8,10 +8,10 @@ package keychain
 
 import "context"
 
-func (kc T) ReadFileCtx(ctx context.Context, service string) ([]byte, error) {
+func (kc T) ReadFileCtx(_ context.Context, service string) ([]byte, error) {
 	return kc.ReadSecureNote(service)
 }
 
-func (kc T) WriteFileCtx(ctx context.Context, service string, data []byte) error {
+func (kc T) WriteFileCtx(_ context.Context, service string, data []byte) error {
 	return kc.WriteSecureNote(service, data)
 }
