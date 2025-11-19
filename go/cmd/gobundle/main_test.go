@@ -180,7 +180,7 @@ func runExample(t *testing.T, binary, argStr string) {
 	t.Helper()
 	located, err := exec.LookPath(binary)
 	if err != nil {
-		t.Fatalf("error finding binary: %v: %v", binary, err)
+		t.Fatalf("error finding binary: %v: in %s: %v", binary, os.Getenv("PATH"), err)
 	}
 	t.Logf("runExample: %v -> %v\n", binary, located)
 	cmd := exec.Command(located, argStr)
