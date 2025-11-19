@@ -20,5 +20,5 @@ jobs:
   lint:
     uses: cloudengio/.github/.github/workflows/go-lint-multimod.yml@main
     with:
-    os-version: macos-latest
+      os-version: macos-latest
       go-version: "1.25.x"
