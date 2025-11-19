@@ -28,8 +28,9 @@ func Example_createAppBundle() {
 	// Create a test executable (just a placeholder file for the example)
 	exeContent := []byte("#!/bin/bash\necho 'Hello from Example App'")
 	exePath := filepath.Join(tempDir, "ExampleExecutable")
-	if err := os.WriteFile(exePath, exeContent, 0755); err != nil {
-		log.Fatalf("Failed to create example executable: %v", err)
+	if err := os.WriteFile(exePath, exeContent, 0755); err != nil { //nolint:gosec // G306
+		fmt.Printf("Failed to create example executable: %v", err)
+		return
 	}
 
 	plistYAML := `
@@ -45,7 +46,8 @@ CFBundleDisplayName: Swift UI Example
 
 	var info buildtools.InfoPlist
 	if err := yaml.Unmarshal([]byte(plistYAML), &info); err != nil {
-		log.Fatalf("failed to unmarshal info plist: %v", err)
+		fmt.Printf("failed to unmarshal info plist: %v", err)
+		return
 	}
 
 	// Define the app bundle with required Info.plist contents
@@ -63,7 +65,7 @@ CFBundleDisplayName: Swift UI Example
 	runner.AddSteps(bundle.CopyContents(exePath, "MacOS", "ExampleExecutable"))
 	results := runner.Run(ctx, buildtools.NewCommandRunner())
 	if err := results.Error(); err != nil {
-		log.Fatalf("Failed to create app bundle: %v", err)
+		fmt.Printf("Failed to create app bundle: %v\n", err)
 	}
 	for _, result := range results {
 		fmt.Printf("Step executed: %v %v\n", result.Executable(), result.Error() == nil)

@@ -102,7 +102,7 @@ func (ipl InfoPlist) MarshalYAML() (any, error) {
 
 func writeInfoPlist(path string, info any) Step {
 	name := filepath.Base(path)
-	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+	return StepFunc(func(_ context.Context, cmdRunner *CommandRunner) (StepResult, error) {
 		if cmdRunner.DryRun() {
 			return NewStepResult("write "+name, []string{path}, nil, nil), nil
 		}
@@ -110,7 +110,7 @@ func writeInfoPlist(path string, info any) Step {
 		if err != nil {
 			return NewStepResult("write "+name, []string{path}, nil, err), err
 		}
-		err = os.WriteFile(path, data, 0644)
+		err = os.WriteFile(path, data, 0644) //nolint:gosec // G306
 		return NewStepResult("write "+name, []string{path}, nil, err), err
 	})
 }

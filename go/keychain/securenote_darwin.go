@@ -45,7 +45,7 @@ func WithAccessibility(v Accessibility) Option {
 const (
 	// KeychainFileBased represents the file-based keychain.
 	// This is the legacy, local only, file based keychain.
-	KeychainFileBased KeychainType = iota
+	KeychainFileBased Type = iota
 	// KeychainDataProtectionLocal represents the data protection
 	// keychain which is local, but integrated with the system's secure
 	// enclave. Applications that use must be signed and have
@@ -72,7 +72,7 @@ const (
 	AccessibleAccessibleAlwaysThisDeviceOnly = keychain.AccessibleAccessibleAlwaysThisDeviceOnly
 )
 
-func (t KeychainType) String() string {
+func (t Type) String() string {
 	switch t {
 	case KeychainFileBased:
 		return "file"
@@ -86,7 +86,7 @@ func (t KeychainType) String() string {
 }
 
 // ParseKeychainType parses a string into a KeychainType.
-func ParseKeychainType(s string) (KeychainType, error) {
+func ParseKeychainType(s string) (Type, error) {
 	switch s {
 	case "file":
 		return KeychainFileBased, nil
@@ -101,12 +101,12 @@ func ParseKeychainType(s string) (KeychainType, error) {
 
 // T represents a keychain that can be used to read and write secure notes.
 type T struct {
-	typ     KeychainType
+	typ     Type
 	opts    options
 	account string
 }
 
-func newKeychain(readonly bool, typ KeychainType, account string, opts ...Option) *T {
+func newKeychain(readonly bool, typ Type, account string, opts ...Option) *T {
 	var options options
 	options.accessibility = keychain.AccessibleWhenUnlocked
 	for _, opt := range opts {
@@ -118,13 +118,13 @@ func newKeychain(readonly bool, typ KeychainType, account string, opts ...Option
 	return &T{typ: typ, account: account, opts: options}
 }
 
-// NewKeychain creates a new Keychain.
-func NewKeychain(typ KeychainType, account string, opts ...Option) *T {
+// New creates a new Keychain.
+func New(typ Type, account string, opts ...Option) *T {
 	return newKeychain(false, typ, account, opts...)
 }
 
-// NewKeychainReadonly creates a new readonly Keychain.
-func NewKeychainReadonly(typ KeychainType, account string, opts ...Option) SecureNoteReader {
+// NewReadonly creates a new readonly Keychain.
+func NewReadonly(typ Type, account string, opts ...Option) SecureNoteReader {
 	return newKeychain(true, typ, account, opts...)
 }
 

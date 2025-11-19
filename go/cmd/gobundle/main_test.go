@@ -26,15 +26,6 @@ info.plist:
   CFBundleIdentifier: com.shared.bundle
   CFBundleDisplayName: My App
 `
-
-	mergedConfigNoIdentity = `
-identity:
-entitlements:
-  com.apple.security.app-sandbox: true
-info.plist:
-  CFBundleIdentifier: com.shared.bundle
-  CFBundleDisplayName: My App
-`
 )
 
 func buildGobundleBinary() (string, string) {
@@ -152,10 +143,10 @@ func TestGoRun(t *testing.T) {
 	cmd := exec.Command(gobundleBinary, "run", "./testdata/example.go", argStr)
 	out := runGoBundle(t, cmd, sharedCfg, appCfg)
 	t.Logf("gobundle run output:\n%s\n", out)
-	if got, want := string(out), "hello\n"; !strings.Contains(got, want) {
+	if got, want := out, "hello\n"; !strings.Contains(got, want) {
 		t.Errorf("unexpected output:\nGot:\n%s\nExpected:\n%s", got, want)
 	}
-	if got, want := string(out), argStr; !strings.Contains(got, want) {
+	if got, want := out, argStr; !strings.Contains(got, want) {
 		t.Errorf("expected output to contain %q, got:\n%s", want, got)
 	}
 }
@@ -174,16 +165,6 @@ func runGoBundle(t *testing.T, cmd *exec.Cmd, sharedCfg, appCfg string) string {
 		t.Fatalf("gobundle build failed: %v %s)", err, string(out))
 	}
 	return string(out)
-}
-
-func getenv(env []string, key string) string {
-	prefix := key + "="
-	for _, e := range env {
-		if after, ok := strings.CutPrefix(e, prefix); ok {
-			return after
-		}
-	}
-	return ""
 }
 
 func runExample(t *testing.T, binary, argStr string) {

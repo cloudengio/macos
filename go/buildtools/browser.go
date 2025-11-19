@@ -41,11 +41,12 @@ func generateExtensionID(publicKey []byte) (string, error) {
 	for i, char := range hexString {
 		// Convert the hex character to its integer value (0-15).
 		var val int
-		if char >= '0' && char <= '9' {
+		switch {
+		case char >= '0' && char <= '9':
 			val = int(char - '0')
-		} else if char >= 'a' && char <= 'f' {
+		case char >= 'a' && char <= 'f':
 			val = int(char - 'a' + 10)
-		} else {
+		default:
 			// This shouldn't happen with hex.EncodeToString, but for safety:
 			return "", fmt.Errorf("invalid hex character in string: %c", char)
 		}
@@ -149,7 +150,7 @@ type NativeMessagingConfig struct {
 
 // Validate validates the native messaging configuration for the specified browser.
 func (nm *NativeMessagingConfig) Validate(browser BrowserType) Step {
-	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+	return StepFunc(func(_ context.Context, _ *CommandRunner) (StepResult, error) {
 		switch browser {
 		default:
 			err := fmt.Errorf("unsupported browser: %q", browser)

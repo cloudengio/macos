@@ -84,14 +84,13 @@ func main() {
 	readNote(kt)
 }
 
-func writeNote(kt keychain.KeychainType, args []string) {
-	kc := keychain.NewKeychain(kt, account, keychain.WithUpdateInPlace(updateInPlace))
+func writeNote(kt keychain.Type, args []string) {
+	kc := keychain.New(kt, account, keychain.WithUpdateInPlace(updateInPlace))
 	data, err := os.ReadFile(args[0])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error reading file: %v\n", err)
 		return
 	}
-	//data := []byte(fmt.Sprintf("This is a test note on %s", kt))
 	err = kc.WriteSecureNote(service, data)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error writing note: account %s, service %s, error: %v\n", account, service, err)
@@ -100,8 +99,8 @@ func writeNote(kt keychain.KeychainType, args []string) {
 	fmt.Printf("note written successfully: account %s, service %s\n", account, service)
 }
 
-func readNote(kt keychain.KeychainType) {
-	kc := keychain.NewKeychainReadonly(kt, account)
+func readNote(kt keychain.Type) {
+	kc := keychain.NewReadonly(kt, account)
 	data, err := kc.ReadSecureNote(service)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error reading note: %v\n", err)

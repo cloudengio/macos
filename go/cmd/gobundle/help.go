@@ -28,7 +28,7 @@ and 'go install' to build the go executable and to
 transparently build a macOS bundle using the executable.
 gobundle run|build|install <args> invokes go run|build|install with <args>.
 For run it uses go run's -exec hook to capture the created executable
-and to build an app bundle in a temporary directy and to run the
+and to build an app bundle in a temporary directly and to run the
 executable from the bundle.
 For build and install it creates the app bundle,
 moves the executable into the bundle and

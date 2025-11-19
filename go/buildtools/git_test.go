@@ -93,16 +93,7 @@ func TestGitReplaceBranch(t *testing.T) {
 	}
 }
 
-func TestGitHash(t *testing.T) {
-	// Create a temporary directory for our test git repository
-	tempDir := t.TempDir()
-
-	// Initialize a git repository for testing
-	ctx := context.Background()
-	runner := buildtools.NewCommandRunner()
-	ctx = buildtools.ContextWithCWD(ctx, tempDir)
-
-	// Initialize git repo
+func initGitRepo(ctx context.Context, t *testing.T, runner *buildtools.CommandRunner, _ string) {
 	_, err := runner.Run(ctx, "git", "init")
 	if err != nil {
 		t.Skipf("git not available, skipping test: %v", err)
@@ -117,31 +108,50 @@ func TestGitHash(t *testing.T) {
 	if err != nil {
 		t.Skipf("failed to configure git user.email: %v", err)
 	}
+}
+
+func verifyHexString(t *testing.T, hash string) {
+	for _, c := range hash {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			t.Errorf("hash contains invalid character %q: %q", string(c), hash)
+		}
+	}
+}
+
+func TestGitHash(t *testing.T) {
+	// Create a temporary directory for our test git repository
+	tempDir := t.TempDir()
+
+	// Initialize a git repository for testing
+	ctx := t.Context()
+	runner := buildtools.NewCommandRunner()
+	ctx = buildtools.ContextWithCWD(ctx, tempDir)
+
+	initGitRepo(ctx, t, runner, tempDir)
+
+	fatal := func(err error, format string, args ...any) {
+		if err != nil {
+			t.Fatalf(format, args...)
+		}
+	}
 
 	// Create a test file and commit it
 	testFile := filepath.Join(tempDir, "test.txt")
-	if err := os.WriteFile(testFile, []byte("test content"), 0644); err != nil {
-		t.Fatalf("failed to create test file: %v", err)
-	}
+	err := os.WriteFile(testFile, []byte("test content"), 0600)
+	fatal(err, "failed to create test file: %v", err)
 
 	_, err = runner.Run(ctx, "git", "add", "test.txt")
-	if err != nil {
-		t.Fatalf("failed to add file to git: %v", err)
-	}
+	fatal(err, "failed to add file to git: %v", err)
 
 	_, err = runner.Run(ctx, "git", "commit", "-m", "Initial commit")
-	if err != nil {
-		t.Fatalf("failed to commit: %v", err)
-	}
+	fatal(err, "failed to commit: %v", err)
 
 	// Create Git instance
 	git := buildtools.NewGit(tempDir)
 
 	// Test Hash function
 	result, err := git.Hash(ctx, runner, "HEAD", 8)
-	if err != nil {
-		t.Fatalf("failed to get git hash: %v", err)
-	}
+	fatal(err, "failed to get git hash: %v", err)
 
 	if result.Error() != nil {
 		t.Fatalf("git hash command failed: %s", result.Error())
@@ -153,17 +163,11 @@ func TestGitHash(t *testing.T) {
 	}
 
 	// Verify it's a valid hex string
-	for _, c := range hash {
-		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
-			t.Errorf("hash contains invalid character %q: %q", string(c), hash)
-		}
-	}
+	verifyHexString(t, hash)
 
 	// Test with different hash length
 	result12, err := git.Hash(ctx, runner, "HEAD", 12)
-	if err != nil {
-		t.Fatalf("failed to get git hash with length 12: %v", err)
-	}
+	fatal(err, "failed to get git hash with length 12: %v", err)
 
 	if result12.Error() != nil {
 		t.Fatalf("git hash command failed: %s", result12.Error())
@@ -181,9 +185,7 @@ func TestGitHash(t *testing.T) {
 
 	// Test with default length (0 should use 8)
 	resultDefault, err := git.Hash(ctx, runner, "HEAD", 0)
-	if err != nil {
-		t.Fatalf("failed to get git hash with default length: %v", err)
-	}
+	fatal(err, "failed to get git hash with default length: %v", err)
 
 	if resultDefault.Error() != nil {
 		t.Fatalf("git hash command failed: %s", resultDefault.Error())
@@ -200,9 +202,7 @@ func TestGitHash(t *testing.T) {
 
 	// Test with empty branch (should default to HEAD)
 	resultEmpty, err := git.Hash(ctx, runner, "", 8)
-	if err != nil {
-		t.Fatalf("failed to get git hash with empty branch: %v", err)
-	}
+	fatal(err, "failed to get git hash with empty branch: %v", err)
 
 	if resultEmpty.Error() != nil {
 		t.Fatalf("git hash command failed: %s", resultEmpty.Error())
