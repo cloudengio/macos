@@ -1,5 +1,7 @@
 .PHONY: build test pr
 
+SUBMODULES = $(wildcard */)
+
 build:
 	multimod build
 
@@ -17,4 +19,4 @@ pr:
 		cloudeng.io/go/cmd/gousage@latest \
 		cloudeng.io/go/cmd/gomarkdown@latest
 	go install golang.org/x/tools/cmd/goimports@latest
-	multimod usage annotate markdown
+	multimod --config=.multimod.yaml usage annotate markdown
