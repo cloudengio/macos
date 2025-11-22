@@ -1,0 +1,5 @@
+info.plist:
+  CFBundleIdentifier: 84RRJLK9H4.io.cloudeng.example
+entitlements:
+  keychain-access-groups:
+    - 84RRJLK9H4.*
