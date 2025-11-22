@@ -30,12 +30,14 @@ type options struct {
 	accessibility Accessibility
 }
 
+// WithUpdateInPlace sets the updateInPlace option for a keychain.T.
 func WithUpdateInPlace(v bool) Option {
 	return func(o *options) {
 		o.updateInPlace = v
 	}
 }
 
+// WithAccessibility sets the accessibility option for a keychain.T.
 func WithAccessibility(v Accessibility) Option {
 	return func(o *options) {
 		o.accessibility = v
@@ -62,15 +64,62 @@ const (
 type Accessibility int
 
 const (
-	AccessibleDefault                        = keychain.AccessibleDefault
-	AccessibleWhenUnlocked                   = keychain.AccessibleWhenUnlocked
-	AccessibleAfterFirstUnlock               = keychain.AccessibleAfterFirstUnlock
-	AccessibleAlways                         = keychain.AccessibleAlways
-	AccessibleWhenPasscodeSetThisDeviceOnly  = keychain.AccessibleWhenPasscodeSetThisDeviceOnly
-	AccessibleWhenUnlockedThisDeviceOnly     = keychain.AccessibleWhenUnlockedThisDeviceOnly
-	AccessibleAfterFirstUnlockThisDeviceOnly = keychain.AccessibleAfterFirstUnlockThisDeviceOnly
-	AccessibleAccessibleAlwaysThisDeviceOnly = keychain.AccessibleAccessibleAlwaysThisDeviceOnly
+	AccessibleDefault                        = Accessibility(keychain.AccessibleDefault)
+	AccessibleWhenUnlocked                   = Accessibility(keychain.AccessibleWhenUnlocked)
+	AccessibleAfterFirstUnlock               = Accessibility(keychain.AccessibleAfterFirstUnlock)
+	AccessibleAlways                         = Accessibility(keychain.AccessibleAlways)
+	AccessibleWhenPasscodeSetThisDeviceOnly  = Accessibility(keychain.AccessibleWhenPasscodeSetThisDeviceOnly)
+	AccessibleWhenUnlockedThisDeviceOnly     = Accessibility(keychain.AccessibleWhenUnlockedThisDeviceOnly)
+	AccessibleAfterFirstUnlockThisDeviceOnly = Accessibility(keychain.AccessibleAfterFirstUnlockThisDeviceOnly)
+	AccessibleAccessibleAlwaysThisDeviceOnly = Accessibility(keychain.AccessibleAccessibleAlwaysThisDeviceOnly)
 )
+
+func (a Accessibility) String() string {
+	switch a {
+	case AccessibleDefault:
+		return "default"
+	case AccessibleWhenUnlocked:
+		return "when-unlocked"
+	case AccessibleAfterFirstUnlock:
+		return "after-first-unlock"
+	case AccessibleAlways:
+		return "always"
+	case AccessibleWhenPasscodeSetThisDeviceOnly:
+		return "when-passcode-set-this-device-only"
+	case AccessibleWhenUnlockedThisDeviceOnly:
+		return "when-unlocked-this-device-only"
+	case AccessibleAfterFirstUnlockThisDeviceOnly:
+		return "after-first-unlock-this-device-only"
+	case AccessibleAccessibleAlwaysThisDeviceOnly:
+		return "always-this-device-only"
+	default:
+		return "unknown"
+	}
+}
+
+// ParseAccessibility parses a string into an Accessibility.
+func ParseAccessibility(s string) (Accessibility, error) {
+	switch s {
+	case "default":
+		return AccessibleDefault, nil
+	case "when-unlocked":
+		return AccessibleWhenUnlocked, nil
+	case "after-first-unlock":
+		return AccessibleAfterFirstUnlock, nil
+	case "always":
+		return AccessibleAlways, nil
+	case "when-passcode-set-this-device-only":
+		return AccessibleWhenPasscodeSetThisDeviceOnly, nil
+	case "when-unlocked-this-device-only":
+		return AccessibleWhenUnlockedThisDeviceOnly, nil
+	case "after-first-unlock-this-device-only":
+		return AccessibleAfterFirstUnlockThisDeviceOnly, nil
+	case "always-this-device-only":
+		return AccessibleAccessibleAlwaysThisDeviceOnly, nil
+	default:
+		return 0, fmt.Errorf("invalid accessibility: %s", s)
+	}
+}
 
 func (t Type) String() string {
 	switch t {
@@ -85,10 +134,10 @@ func (t Type) String() string {
 	}
 }
 
-// ParseKeychainType parses a string into a KeychainType.
-func ParseKeychainType(s string) (Type, error) {
+// ParseType parses a string into a KeychainType.
+func ParseType(s string) (Type, error) {
 	switch s {
-	case "file":
+	case "file", "default":
 		return KeychainFileBased, nil
 	case "data-protection-local", "data-protection", "local":
 		return KeychainDataProtectionLocal, nil
@@ -108,7 +157,7 @@ type T struct {
 
 func newKeychain(readonly bool, typ Type, account string, opts ...Option) *T {
 	var options options
-	options.accessibility = keychain.AccessibleWhenUnlocked
+	options.accessibility = Accessibility(keychain.AccessibleWhenUnlocked)
 	for _, opt := range opts {
 		opt(&options)
 	}
@@ -144,8 +193,11 @@ func (kc T) configure(item *keychain.Item) {
 func (kc T) WriteSecureNote(service string, data []byte) error {
 	item := kc.newItem(service, data)
 	err := keychain.AddItem(item)
-	if err == keychain.ErrorDuplicateItem && kc.opts.updateInPlace {
-		return kc.UpdateSecureNote(service, data)
+	if err == keychain.ErrorDuplicateItem {
+		if kc.opts.updateInPlace {
+			return kc.UpdateSecureNote(service, data)
+		}
+		err = fs.ErrExist
 	}
 	return err
 }

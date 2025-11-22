@@ -10,6 +10,8 @@ require (
 )
 
 require (
-	cloudeng.io/os v0.0.0-20251119175537-cb617f2ab9c4 // indirect
+	cloudeng.io/logging v0.0.0-20251120223035-dddae1c360ce // indirect
+	cloudeng.io/os v0.0.0-20251120181725-ae601f12dbbf // indirect
+	cloudeng.io/security v0.0.0-20251120223035-dddae1c360ce // indirect
 	github.com/cloudengio/go-keychain v0.0.0-20251119184527-ddc7d2e1d0cb // indirect
 )

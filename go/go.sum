@@ -1,7 +1,12 @@
 cloudeng.io/cmdutil v0.0.0-20251119053757-d58e85373552 h1:BegHV/eybidKU5qobpKtCWkpAeL+YpW/Um08fCuRMOE=
 cloudeng.io/cmdutil v0.0.0-20251119053757-d58e85373552/go.mod h1:DPmPt2BHWbkbVQ96AwvESlACDFHncHvXNqdFs0/e/68=
+cloudeng.io/logging v0.0.0-20251120223035-dddae1c360ce h1:hrAfSHXG0fA2e2X+eXfskiRLwjv/k8wJF5/Ich7eNGE=
+cloudeng.io/logging v0.0.0-20251120223035-dddae1c360ce/go.mod h1:D0TUs3Aiwa1c7xI/TE7JITYnICck34r6DR5twakJjIs=
 cloudeng.io/os v0.0.0-20251119175537-cb617f2ab9c4 h1:Cs19rx9GwWOe+Vlq3kcfagpXOL5RpYo0ZKMkBwMwhNE=
 cloudeng.io/os v0.0.0-20251119175537-cb617f2ab9c4/go.mod h1:UuSncaIdaiCWJbgz8sOcFQF1BhMCS60S5KjKFSOwW1c=
+cloudeng.io/os v0.0.0-20251120181725-ae601f12dbbf/go.mod h1:UuSncaIdaiCWJbgz8sOcFQF1BhMCS60S5KjKFSOwW1c=
+cloudeng.io/security v0.0.0-20251120223035-dddae1c360ce h1:sTt0tNasAljzcsLHjFVAivVE32hss/zIcgt87AX+2wQ=
+cloudeng.io/security v0.0.0-20251120223035-dddae1c360ce/go.mod h1:Iq7eQRSrdt7xhOA7aBoLlNO1I7ENIwm6Jy6sPP7qbaU=
 cloudeng.io/text v0.0.13 h1:ivKGX9ssgYKrXQt+csSOA/HTmsdbxrVUnkCQyikI7ok=
 cloudeng.io/text v0.0.13/go.mod h1:6rDG6qEzGxe8ePNBz7VwSf0ps9p9ihDB/uXSFR0CJvk=
 github.com/cloudengio/go-keychain v0.0.0-20251119184527-ddc7d2e1d0cb h1:1YMjGqR77dAg1Cu0ooIH7crlh75y/p7ry23bndtHojY=
