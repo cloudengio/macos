@@ -1,9 +1,7 @@
 # [cloudeng.io/macos/cmd/keychain-plugin](https://pkg.go.dev/cloudeng.io/macos/cmd/keychain-plugin?tab=doc)
 
 
-{"time":"2025-11-21T17:14:29.210369-08:00","level":"ERROR","msg":"plugin
-error","id":0,"message":"failed to decode
-request","error":"EOF"} {"error":{"message":"failed to decode
-request","detail":"EOF"}}{"time":"2025-11-21T17:14:29.210565-08:00","level":"INFO","msg":"sent
-response","id":0,"error":"failed to decode request: EOF"}
+macos-`keychain-plugin` is a plugin for the macOS keychain. To install it run
+go generate in the go/cmd/`keychain-plugin` directory taking care to set up
+the appropriate Apple signing identity and provisioning profile.
 

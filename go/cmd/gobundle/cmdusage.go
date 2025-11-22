@@ -19,7 +19,7 @@
 //	the name and location of the executable.
 //
 //	gobundle is configured using environment variables and YAML configuration files
-//	that use the types in cloudgeng.io/macos/buildtools.
+//	that use the types in cloudeng.io/macos/buildtools.
 //	The config file format is as follows:
 //
 //	    identity:       - signing identity

@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 
@@ -15,6 +16,12 @@ import (
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "--help" {
+		fmt.Printf("macos-keychain-plugin is a plugin for the macOS keychain.\n")
+		fmt.Printf("To install it run go generate in the go/cmd/keychain-plugin directory\n")
+		fmt.Printf("taking care to set up the appropriate Apple signing identity and provisioning profile.\n")
+		return
+	}
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	ctx := ctxlog.WithLogger(context.Background(), logger)
 	srv := plugin.NewServer(logger)

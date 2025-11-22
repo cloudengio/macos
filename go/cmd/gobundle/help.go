@@ -39,7 +39,7 @@ For build and install it uses the same heuristics as the go command to determine
 `
 
 const para3 = `
-gobundle is configured using environment variables and YAML configuration files that use the types in cloudgeng.io/macos/buildtools.
+gobundle is configured using environment variables and YAML configuration files that use the types in cloudeng.io/macos/buildtools.
 `
 
 const para4 = `
