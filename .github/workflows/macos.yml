@@ -11,11 +11,30 @@ permissions:
 
 jobs:
   test:
-    uses: cloudengio/.github/.github/workflows/go-test-multimod.yml@main
-    with:
-      os-version: macos-latest
-      go-versions: |
-        [ "1.25.x" ]
+    strategy:
+      matrix:
+        go-version: ["1.25.x"]
+
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cloudengio/.github/.github/actions/go@main
+      - uses: cloudengio/.github/.github/actions/apple-signing-provisioning@macos-signing
+        with:
+          enabled: true
+          install-profile-location: "provisioning.profile"
+      - name: install keychain plugin
+        env:
+          CLOUDENG_SIGNING: ${{ secrets.CLOUDENG_SIGNING }}
+          CLOUDENG_KEYCHAIN_PROFILE: $RUNNER_TEMP/provisioning.profile
+          CLOUDENG_DEVID: ${{ secrets.CLOUDENG_DEVID }}
+        run: |
+          cd go/cmd/keychain-plugin
+          go generate .
+
+      - name: test
+        run: multimod --config=.multimod.yaml test
 
   lint:
     uses: cloudengio/.github/.github/workflows/go-lint-multimod.yml@main

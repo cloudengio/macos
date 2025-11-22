@@ -1,5 +1,5 @@
 identity: "${CLOUDENG_SIGNING}"
-profile: "${CLOUDENG_EXAMPLE_PROFILE}"
+profile: "${CLOUDENG_KEYCHAIN_PROFILE}"
 entitlements:
    com.apple.security.app-sandbox: true
    keychain-access-groups:

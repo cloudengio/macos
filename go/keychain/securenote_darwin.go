@@ -264,6 +264,20 @@ func (kc T) ReadSecureNote(service string) ([]byte, error) {
 	return data, err
 }
 
+// DeleteSecureNote deletes a secure note from the keychain.
+func (kc T) DeleteSecureNote(service string) error {
+	result, err := kc.queryNote(service)
+	if err != nil {
+		return err
+	}
+	item := keychain.NewItem()
+	kc.configure(&item)
+	item.SetService(result.Service)
+	item.SetAccount(result.Account)
+	item.SetDescription(result.Description)
+	return keychain.DeleteItem(item)
+}
+
 type plist struct {
 	Dict dict `xml:"dict"`
 }
