@@ -43,14 +43,15 @@ by gobundle-app.yml.
 
 func possiblyHandleCommandLine(args []string) {
 	if len(args) == 1 && args[0] == "--help" {
-		fmt.Println(usage)
+		fmt.Print(usage)
 		os.Exit(1)
 	}
 	if len(args) != 4 {
 		return
 	}
 	if args[0] != "delete" {
-		return
+		fmt.Print(usage)
+		os.Exit(1)
 	}
 	kt := args[1]
 	account := args[2]
