@@ -1,13 +1,7 @@
-// Usage of /var/folders/dy/3b1mfs651m1cdwzr6xd9j4dm0000gn/T/go-build3752991561/b001/exe/keychain:
+// Usage of keychain
 //
-//	-account string
-//	  	keychain account that the note belongs to
-//	-keychain-type string
-//	  	keychain type: file, data-protection, or icloud (default "file")
-//	-service string
-//	  	keychain service that the note belongs to
-//	-update-in-place
-//	  	set to true to update existing note in place
-//	-write
-//	  	set to true to write a note instead of reading
+//	provide access to local keychains across multiple operating systems
+//
+//	 read - read items from the keychain
+//	write - write items to the keychain
 package main
