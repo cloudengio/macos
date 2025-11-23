@@ -28,10 +28,6 @@ commands:
     summary: write items to the keychain
     arguments:
       - <filename>
-  - name: delete
-    summary: delete items from the keychain
-    arguments:
-      - <item-name>
 `
 
 func cli() *subcmd.CommandSetYAML {
@@ -39,7 +35,6 @@ func cli() *subcmd.CommandSetYAML {
 	var pluginCmd pluginCmd
 	cmd.Set("read").MustRunner(pluginCmd.Read, &ReadFlags{})
 	cmd.Set("write").MustRunner(pluginCmd.Write, &WriteFlags{})
-	cmd.Set("delete").MustRunner(pluginCmd.Delete, &ReadFlags{})
 	return cmd
 }
 
@@ -90,14 +85,6 @@ func (pluginCmd) Write(ctx context.Context, f any, args []string) error {
 	}
 	fmt.Printf("writing item %q to keychain\n", name)
 	err = fs.WriteFileCtx(ctx, name, contents)
-	return handleError(err)
-}
-
-func (pluginCmd) Delete(ctx context.Context, f any, args []string) error {
-	fl := f.(*ReadFlags)
-	cfg := fl.Config()
-	fs := plugins.NewFS(cfg.Binary, cfg)
-	err := fs.RemoveCtx(ctx, args[0])
 	return handleError(err)
 }
 
