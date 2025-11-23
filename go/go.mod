@@ -3,8 +3,9 @@ module cloudeng.io/macos
 go 1.25.3
 
 require (
-	cloudeng.io/cmdutil v0.0.0-20251120223035-dddae1c360ce
-	cloudeng.io/logging v0.0.0-20251120223035-dddae1c360ce
+	cloudeng.io/cmdutil v0.0.0-20251122012532-070b66c9803a
+	cloudeng.io/logging v0.0.0-20251122012532-070b66c9803a
+	cloudeng.io/os v0.0.0-20251120181725-ae601f12dbbf
 	cloudeng.io/security v0.0.0-20251122012532-070b66c9803a
 	cloudeng.io/text v0.0.13
 	github.com/cloudengio/go-keychain v0.0.0-20251120230617-c4053f60cda7
@@ -13,6 +14,6 @@ require (
 )
 
 require (
-	cloudeng.io/file v0.0.0-20251120223035-dddae1c360ce // indirect
-	cloudeng.io/os v0.0.0-20251120181725-ae601f12dbbf // indirect
+	cloudeng.io/file v0.0.0-20251122012532-070b66c9803a // indirect
+	golang.org/x/sys v0.38.0 // indirect
 )
