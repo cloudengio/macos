@@ -31,6 +31,7 @@ jobs:
           CLOUDENG_KEYCHAIN_PROFILE: $RUNNER_TEMP/provisioning.profile
           CLOUDENG_DEVID: ${{ secrets.CLOUDENG_DEVID }}
         run: |
+          go install cloudeng.io/macos/cmd/gobundle@latest
           cd go/cmd/keychain-plugin
           go generate .
 
