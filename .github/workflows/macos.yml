@@ -22,8 +22,9 @@ jobs:
       - uses: cloudengio/.github/.github/actions/go@main
       - uses: cloudengio/.github/.github/actions/apple-signing-provisioning@macos-signing
         with:
-          enabled: true
-          install-profile-location: "provisioning.profile"
+          provisioning-profile-base64: ${{ secrets.CLOUDENG_PROVISIONING_PROFILE }}
+          provisioning-profile-location: "provisioning.profile"
+          certificate-p12-base64: ${{ secrets.CLOUDENG_SIGNING }}
       - name: install keychain plugin
         env:
           CLOUDENG_SIGNING: ${{ secrets.CLOUDENG_SIGNING }}
