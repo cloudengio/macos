@@ -5,4 +5,4 @@ entitlements:
   keychain-access-groups:
     - "${CLOUDENG_DEVID}.*"
 info.plist:
-  CFBundleIdentifier: "${CLOUDENG_DEVID}.io.cloudeng.keychain-github"
+  CFBundleIdentifier: "${CLOUDENG_DEVID}.io.cloudeng.${CLOUDENG_KEYCHAIN_IDENTIFIER}"
