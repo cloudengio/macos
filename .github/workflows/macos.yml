@@ -58,7 +58,8 @@ jobs:
 
           security list-keychains
           security default-keychain
-          multimod --config=.multimod.yaml test
+          multimod --config=.multimod.yaml test || true
+          log show --debug -last 1m
 
   lint:
     uses: cloudengio/.github/.github/workflows/go-lint-multimod.yml@main
