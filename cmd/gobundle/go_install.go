@@ -14,6 +14,9 @@ import (
 func handleGoInstall(ctx context.Context, merged []byte, args []string) error {
 	_, rest := consumeBuildArgs(args)
 	installDir, binary := deterimineInstallBinary(rest)
+	if err := os.Remove(binary); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("error removing original binary: %v", err)
+	}
 	if err := rungo(ctx, append([]string{"install"}, args...)); err != nil {
 		return err
 	}
