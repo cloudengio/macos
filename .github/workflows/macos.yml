@@ -30,6 +30,7 @@ jobs:
           CLOUDENG_SIGNING: ${{ secrets.APPLE_SIGNING_CERTIFICATE }}
           CLOUDENG_KEYCHAIN_PROFILE: $RUNNER_TEMP/provisioning.profile
           CLOUDENG_DEVID: ${{ secrets.CLOUDENG_DEVID }}
+          GOBUNDLE_VERBOSE: "yes"
         run: |
           go install cloudeng.io/macos/cmd/gobundle@latest
           cd cmd/keychain-plugin
