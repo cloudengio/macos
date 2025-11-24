@@ -72,6 +72,8 @@ func TestKeychainCommand(t *testing.T) {
 				valueFile,
 			)
 
+			runCmdNoError(ctx, t, "security", "dump-keychain")
+
 			// Read from keychain
 			// keychain read --keychain-plugin=<plugin> --keychain-type=<type> <keyName>
 			out := runCmdNoError(ctx, t, keychainCmdPath, "read",
