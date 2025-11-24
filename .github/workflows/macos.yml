@@ -46,7 +46,8 @@ jobs:
       - name: test
         run: |
           security list-keychains
-          security dump-keychain $(security list-keychain -d user)
+          security list-keychains -d user
+          security dump-keychain $(security list-keychains -d user)
           multimod --config=.multimod.yaml test
 
   lint:
