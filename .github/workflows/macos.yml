@@ -32,7 +32,7 @@ jobs:
           CLOUDENG_DEVID: ${{ secrets.CLOUDENG_DEVID }}
         run: |
           go install cloudeng.io/macos/cmd/gobundle@latest
-          cd go/cmd/keychain-plugin
+          cd cmd/keychain-plugin
           go generate .
 
       - name: test
