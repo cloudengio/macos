@@ -31,10 +31,9 @@ jobs:
           CLOUDENG_KEYCHAIN_PROFILE: $RUNNER_TEMP/provisioning.profile
           CLOUDENG_DEVID: ${{ secrets.CLOUDENG_DEVID }}
         run: |
-          ls
-          #go install cloudeng.io/macos/cmd/gobundle@latest
-          #cd go/cmd/keychain-plugin
-          #go generate .
+          go install cloudeng.io/macos/cmd/gobundle@latest
+          cd go/cmd/keychain-plugin
+          go generate .
 
       - name: test
         run: multimod --config=.multimod.yaml test
