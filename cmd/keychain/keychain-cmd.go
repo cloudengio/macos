@@ -96,9 +96,10 @@ func handleError(err error) error {
 	if pluginErr == nil {
 		return err
 	}
-	fmt.Printf("plugin error: %s: %s\n", pluginErr.Message, pluginErr.Detail)
+	name := filepath.Base(os.Args[0])
+	fmt.Printf("%s: plugin error: %s: %s\n", name, pluginErr.Message, pluginErr.Detail)
 	if pluginErr.Stderr != "" {
-		fmt.Printf("plugin stderr: %s\n", pluginErr.Stderr)
+		fmt.Printf("%s: plugin stderr: %s\n", name, pluginErr.Stderr)
 	}
 	return err
 }

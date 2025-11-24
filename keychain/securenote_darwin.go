@@ -28,6 +28,7 @@ type Option func(o *options)
 type options struct {
 	updateInPlace bool
 	accessibility Accessibility
+	useKeychain   string
 }
 
 // WithUpdateInPlace sets the updateInPlace option for a keychain.T.
@@ -41,6 +42,12 @@ func WithUpdateInPlace(v bool) Option {
 func WithAccessibility(v Accessibility) Option {
 	return func(o *options) {
 		o.accessibility = v
+	}
+}
+
+func WithKeychain(path string) Option {
+	return func(o *options) {
+		o.useKeychain = path
 	}
 }
 
@@ -179,6 +186,9 @@ func NewReadonly(typ Type, account string, opts ...Option) SecureNoteReader {
 
 func (kc T) configure(item *keychain.Item) {
 	item.SetSecClass(keychain.SecClassGenericPassword)
+	if len(kc.opts.useKeychain) > 0 {
+		item.SetUseKeychain(kc.opts.useKeychain)
+	}
 	switch kc.typ {
 	case KeychainFileBased:
 	case KeychainDataProtectionLocal:

@@ -43,6 +43,7 @@ func TestKeychainCommand(t *testing.T) {
 
 	// The account is the user's login name.
 	account := os.Getenv("USER")
+	keychainPath := os.Getenv("KEYCHAIN_PATH")
 
 	// Build the keychain command binary
 	keychainCmdPath, err := executil.GoBuild(ctx, filepath.Join(tmpDir, "keychain"), ".")
@@ -67,14 +68,14 @@ func TestKeychainCommand(t *testing.T) {
 			// Write to keychain
 			// keychain write --keychain-plugin=<plugin> --keychain-type=<type> --name=<keyName> <valueFile>
 			runCmdNoError(ctx, t, keychainCmdPath,
-				"write", "--keychain-type="+kt, "--name="+keyName, valueFile)
+				"write", "--keychain-path="+keychainPath, "--keychain-type="+kt, "--name="+keyName, valueFile)
 
 			runCmdNoError(ctx, t, "security", "dump-keychain", "/Users/runner/work/_temp/keychain-ci-testing.keychain-db")
 
 			// Read from keychain
 			// keychain read --keychain-plugin=<plugin> --keychain-type=<type> <keyName>
 			out := runCmdNoError(ctx, t, keychainCmdPath,
-				"read", "--keychain-type="+kt, keyName)
+				"read", "--keychain-path="+keychainPath, "--keychain-type="+kt, keyName)
 			if got := out; len(got) == 0 || got != value {
 				t.Errorf("read value mismatch for %s: got %q, want %q", kt, got, value)
 			}
@@ -85,7 +86,7 @@ func TestKeychainCommand(t *testing.T) {
 			t.Log("delete output:", out)
 
 			_, err = runCmd(ctx, keychainCmdPath,
-				"read", "--keychain-type="+kt, keyName)
+				"read", "--keychain-path="+keychainPath, "--keychain-type="+kt, keyName)
 			if err == nil {
 				t.Errorf("expected error when reading deleted keychain item %q for account %q, got none", keyName, account)
 			}
