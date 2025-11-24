@@ -59,7 +59,7 @@ jobs:
           security list-keychains
           security default-keychain
           multimod --config=.multimod.yaml test || true
-          log show --debug -last 1m
+          log show --debug -last 1m 2>&1 | grep macos-keychain-plugin
 
   lint:
     uses: cloudengio/.github/.github/workflows/go-lint-multimod.yml@main
