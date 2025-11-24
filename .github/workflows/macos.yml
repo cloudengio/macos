@@ -32,6 +32,7 @@ jobs:
           CLOUDENG_DEVID: ${{ secrets.CLOUDENG_DEVID }}
           GOBUNDLE_VERBOSE: "yes"
         run: |
+          security list-keychain -d user
           go install cloudeng.io/macos/cmd/gobundle@latest
           cd cmd/keychain-plugin
           go generate .
