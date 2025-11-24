@@ -45,7 +45,9 @@ jobs:
           # security cms -D -i /Users/runner/work/_temp/provisioning.profile
 
       - name: test
-        run: multimod --config=.multimod.yaml test
+        run: |
+          security list-keychains
+          multimod --config=.multimod.yaml test
 
   lint:
     uses: cloudengio/.github/.github/workflows/go-lint-multimod.yml@main

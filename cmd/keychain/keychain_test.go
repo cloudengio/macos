@@ -66,36 +66,26 @@ func TestKeychainCommand(t *testing.T) {
 
 			// Write to keychain
 			// keychain write --keychain-plugin=<plugin> --keychain-type=<type> --name=<keyName> <valueFile>
-			runCmdNoError(ctx, t, keychainCmdPath, "write",
-				"--keychain-type="+kt,
-				"--name="+keyName,
-				valueFile,
-			)
+			runCmdNoError(ctx, t, keychainCmdPath,
+				"write", "--keychain-type="+kt, "--name="+keyName, valueFile)
 
 			runCmdNoError(ctx, t, "security", "dump-keychain")
 
 			// Read from keychain
 			// keychain read --keychain-plugin=<plugin> --keychain-type=<type> <keyName>
-			out := runCmdNoError(ctx, t, keychainCmdPath, "read",
-				"--keychain-type="+kt,
-				keyName,
-			)
+			out := runCmdNoError(ctx, t, keychainCmdPath,
+				"read", "--keychain-type="+kt, keyName)
 			if got := out; len(got) == 0 || got != value {
 				t.Errorf("read value mismatch for %s: got %q, want %q", kt, got, value)
 			}
 
 			t.Logf("deleting keychain type %v item %q for account %q", kt, keyName, account)
-			out = runCmdNoError(ctx, t, "macos-keychain-plugin", "delete",
-				kt,
-				account,
-				keyName,
-			)
+			out = runCmdNoError(ctx, t, "macos-keychain-plugin",
+				"delete", kt, account, keyName)
 			t.Log("delete output:", out)
 
-			_, err = runCmd(ctx, keychainCmdPath, "read",
-				"--keychain-type="+kt,
-				keyName,
-			)
+			_, err = runCmd(ctx, keychainCmdPath,
+				"read", "--keychain-type="+kt, keyName)
 			if err == nil {
 				t.Errorf("expected error when reading deleted keychain item %q for account %q, got none", keyName, account)
 			}
