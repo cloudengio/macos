@@ -47,6 +47,9 @@ jobs:
         run: |
           security list-keychains
           security list-keychains -d user
+          security default-keychain
+          security default-keychain -s /Users/runner/work/_temp/keychain-ci-testing.keychain-db
+
           security dump-keychain /Users/runner/work/_temp/keychain-ci-testing.keychain-db
           multimod --config=.multimod.yaml test
 
