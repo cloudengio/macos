@@ -43,7 +43,10 @@ jobs:
           # codesign -dv --entitlements - --xml /Users/runner/go/bin/macos-keychain-plugin 2>&1 | grep xml | tidy -xml -i -q
           # security cms -D -i /Users/runner/work/_temp/provisioning.profile
 
+      - name: test
+        run: |
           security list-keychains
+          security dump-keychain $(security list-keychain -d user)
           multimod --config=.multimod.yaml test
 
   lint:
