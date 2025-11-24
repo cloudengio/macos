@@ -46,11 +46,16 @@ jobs:
       - name: test
         run: |
           security list-keychains
-          security list-keychains -d user
           security default-keychain
-          security default-keychain -s /Users/runner/work/_temp/keychain-ci-testing.keychain-db
+          KEYCHAIN_PATH=$(security list-keychain -d user | tr -d '"')
+          echo "keychain path: $KEYCHAIN_PATH"
+          security default-keychain -s $KEYCHAIN_PATH
+          security dump-keychain $KEYCHAIN_PATH
+          security add-generic-password -a "$USER" -s "service_name" -w "password_value" -k $KEYCHAIN_PATH
+          security dump-keychain $KEYCHAIN_PATH
 
-          security dump-keychain /Users/runner/work/_temp/keychain-ci-testing.keychain-db
+          security list-keychains
+          security default-keychain
           multimod --config=.multimod.yaml test
 
   lint:
