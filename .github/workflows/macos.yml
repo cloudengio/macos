@@ -42,7 +42,7 @@ jobs:
           # security dump-keychain $(security list-keychain -d user)
 
           go install cloudeng.io/macos/cmd/gobundle@latest
-          CUSTOM_KEYCHAIN_PATH=${{ steps.create-keychain.outputs.keychain-path }}
+          export CUSTOM_KEYCHAIN_PATH=${{ steps.create-keychain.outputs.keychain-path }}
           (cd cmd/keychain-plugin; GOBUNDLE_VERBOSE=yes go generate .)
           macos-keychain-plugin --help || true
 
