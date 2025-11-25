@@ -4,5 +4,7 @@ entitlements:
   com.apple.security.app-sandbox: true
   keychain-access-groups:
     - "${CLOUDENG_DEVID}.*"
+  com.apple.security.temporary-exception.files.absolute-path.read-write:
+    ["${CUSTOM_KEYCHAIN_PATH}"]
 info.plist:
   CFBundleIdentifier: "${CLOUDENG_DEVID}.io.cloudeng.${CLOUDENG_KEYCHAIN_IDENTIFIER}"
