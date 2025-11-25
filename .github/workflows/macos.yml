@@ -49,10 +49,16 @@ jobs:
           security cms -D -i /Users/runner/work/_temp/provisioning.profile
 
       - name: test
+        id: test
         run: |
           set -x
+          USER_KEYCHAIN=$(security list-keychain -d user | tr -d '"' | sed 's/^ *//')
+          DEFAULT_KEYCHAIN=$(security default-keychain | tr -d '"' | sed 's/^ *//')
+          echo "user_keychain=$USER_KEYCHAIN" >> "$GITHUB_OUTPUT"
+          echo "default_keychain=$DEFAULT_KEYCHAIN" >> "$GITHUB_OUTPUT"
 
           KEYCHAIN_PATH=${{ steps.create-keychain.outputs.keychain-path }}
+          security list-keychains -d user -s $KEYCHAIN_PATH # Add the new keychain to the search path
           security default-keychain -s $KEYCHAIN_PATH
           echo $KEYCHAIN_PATH
           echo "default keychain: $(security default-keychain)"
@@ -76,9 +82,12 @@ jobs:
       - name: cleanup
         if: always()
         run: |
+          set -x
           KEYCHAIN_PATH=${{ steps.create-keychain.outputs.keychain-path }}
-          echo "Deleting keychain at $KEYCHAIN_PATH"
+          security list-keychains -d user -s ${{ steps.test.outputs.user_keychain }} || true
+          security default-keychain -s ${{ steps.test.outputs.default_keychain }} || true
           security delete-keychain "$KEYCHAIN_PATH" || true
+
   lint:
     uses: cloudengio/.github/.github/workflows/go-lint-multimod.yml@main
     with:
