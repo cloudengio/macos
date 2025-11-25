@@ -45,14 +45,13 @@ jobs:
           security cms -D -i /Users/runner/work/_temp/provisioning.profile
 
       - name: test
-        env:
-          KEYCHAIN_PATH: $RUNNER_TEMP/keychain-ci-testing.keychain-db
         run: |
           security list-keychains
           security default-keychain
-          KEYCHAIN_PATH=$(security list-keychain -d user | tr -d '"')
+          export KEYCHAIN_PATH=$(security list-keychain -d user | tr -d '"')
           echo "keychain path: $KEYCHAIN_PATH"
           security default-keychain -s $KEYCHAIN_PATH
+
           #security dump-keychain $KEYCHAIN_PATH
           #security add-generic-password -a "$USER" -s "service_name" -w "password_value" $KEYCHAIN_PATH
           #security dump-keychain $KEYCHAIN_PATH
