@@ -20,11 +20,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: cloudengio/.github/.github/actions/go@main
-      - uses: cloudengio/.github/.github/actions/apple-signing-provisioning@macos-signing
+      - uses: cloudengio/.github/.github/actions/apple-keychain@macos-signing
+      - uses: cloudengio/.github/.github/actions/apple-provisioning@macos-signing
+        with:
+          certificate-p12-base64: ${{ secrets.APPLE_SIGNING_CERTIFICATE }}
+      - uses: cloudengio/.github/.github/actions/apple-provisioning@macos-signing
         with:
           provisioning-profile-base64: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
           provisioning-profile-location: "provisioning.profile"
-          certificate-p12-base64: ${{ secrets.APPLE_SIGNING_CERTIFICATE }}
       - name: install keychain plugin
         env:
           CLOUDENG_SIGNING: ${{ secrets.CLOUDENG_SIGNING }}
@@ -55,7 +58,6 @@ jobs:
           echo "default keychain: $(security default-keychain)"
           echo "all keychains: $(security list-keychains)"
           echo "user keychains: $(security list-keychains -d user)"
-
 
           security add-generic-password -a "$USER" -s "service_name_0" -w "password_value_0" $KEYCHAIN_PATH
           security add-generic-password -a "$USER" -s "service_name_1" -w "password_value_1"
