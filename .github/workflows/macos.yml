@@ -67,7 +67,7 @@ jobs:
 
           multimod --config=.multimod.yaml test || true
 
-          security dump-keychain
+          log show --debug -last 1m | grep keychain
 
           exit 1
 
