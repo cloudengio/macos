@@ -14,12 +14,14 @@ import (
 	"cloudeng.io/logging/ctxlog"
 	"cloudeng.io/macos/keychain"
 	"cloudeng.io/macos/keychain/plugin"
+	gokeychain "github.com/cloudengio/go-keychain"
 )
 
 func main() {
 	if len(os.Args) > 1 {
 		possiblyHandleCommandLine(os.Args[1:])
 	}
+	gokeychain.PrintKeychainAccess()
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	ctx := ctxlog.WithLogger(context.Background(), logger)
 	srv := plugin.NewServer(logger)
