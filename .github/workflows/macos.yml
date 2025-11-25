@@ -66,9 +66,14 @@ jobs:
           echo "without path"
           security dump-keychain | grep service_name
 
-          multimod --config=.multimod.yaml test || true
+          cd cmd/keychain
+          echo "yyy" > xxx
+          go run . write --keychain-type=file --name=test-key xxx
+          go run . read --keychain-type=file --name=test-key
 
-          log show --debug -last 1m | grep keychain
+          #multimod --config=.multimod.yaml test || true
+
+          log show --debug -last 1m | grep macos-keychain-plugin
 
           exit 1
 
