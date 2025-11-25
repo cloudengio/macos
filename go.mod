@@ -8,7 +8,7 @@ require (
 	cloudeng.io/os v0.0.0-20251120181725-ae601f12dbbf
 	cloudeng.io/security v0.0.0-20251125185808-c30e6cae2e30
 	cloudeng.io/text v0.0.13
-	github.com/cloudengio/go-keychain v0.0.0-20251125180914-6ea4ac78a001
+	github.com/cloudengio/go-keychain v0.0.0-20251120230617-c4053f60cda7
 	gopkg.in/yaml.v3 v3.0.1
 	howett.net/plist v1.0.1
 )

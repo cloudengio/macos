@@ -20,11 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       - uses: cloudengio/.github/.github/actions/go@main
-      - uses: cloudengio/.github/.github/actions/apple-keychain@macos-signing
+      - uses: cloudengio/.github/.github/actions/apple-keychain@main
         id: create-keychain
         with:
           certificate-p12-base64: ${{ secrets.APPLE_SIGNING_CERTIFICATE }}
-      - uses: cloudengio/.github/.github/actions/apple-provisioning@macos-signing
+      - uses: cloudengio/.github/.github/actions/apple-provisioning@main
         with:
           provisioning-profile-base64: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
           provisioning-profile-location: "provisioning.profile"
@@ -38,51 +38,16 @@ jobs:
           GOBUNDLE_VERBOSE: "yes"
 
         run: |
-          # security list-keychain -d user
-          # security dump-keychain $(security list-keychain -d user)
-
+          # Make sure we can build and run the keychain plugin
+          # though we can't actually test it here since it requires
+          # access to a keychain which we don't have in the runner.
           go install cloudeng.io/macos/cmd/gobundle@latest
-          export CUSTOM_KEYCHAIN_PATH=${{ steps.create-keychain.outputs.keychain-path }}
-          (cd cmd/keychain-plugin; GOBUNDLE_VERBOSE=yes go generate .)
-          macos-keychain-plugin --help || true
-
-          codesign -dv --verbose=4 /Users/runner/go/bin/macos-keychain-plugin
-          codesign -dv --entitlements - --xml /Users/runner/go/bin/macos-keychain-plugin 2>&1 | grep xml | tidy -xml -i -q
-          security cms -D -i /Users/runner/work/_temp/provisioning.profile
+          (cd cmd/keychain-plugin; go generate .)
+          macos-keychain-plugin --help
 
       - name: test
         run: |
-          set -x
-          KEYCHAIN_PATH=${{ steps.create-keychain.outputs.keychain-path }}
-          echo $KEYCHAIN_PATH
-          echo "default keychain: $(security default-keychain)"
-          echo "all keychains: $(security list-keychains)"
-          echo "user keychains: $(security list-keychains -d user)"
-
-          security add-generic-password -a "$USER" -s "service_name_0" -w "password_value_0" $KEYCHAIN_PATH
-          security add-generic-password -a "$USER" -s "service_name_1" -w "password_value_1"
-          cd cmd/keychain
-          go run . read --keychain-type=file "service_name_0" || true
-          log show --debug -last 1m | grep macos-keychain-plugin
-
-          echo "with path"
-          security dump-keychain $KEYCHAIN_PATH | grep service_name
-          echo "without path"
-          security dump-keychain | grep service_name
-
-          ls -la $(security default-keychain | tr -d '"')
-          ls -la /Users/runner/work/_temp/
-          #cd cmd/keychain
-          echo "yyy" > xxx
-          go run . write --keychain-accessibility=when-unlocked --keychain-type=file --name=test-key xxx || true
-
-          go run . read --keychain-type=file test-key || true
-
-          #multimod --config=.multimod.yaml test || true
-
-          log show --debug -last 1m | grep macos-keychain-plugin
-
-          exit 1
+          multimod --config=.multimod.yaml test
 
       - name: cleanup
         if: always()
