@@ -26,6 +26,8 @@ github.com/cloudengio/go-keychain v0.0.0-20251125022659-ebcfd00a9f45 h1:3BzrEgeG
 github.com/cloudengio/go-keychain v0.0.0-20251125022659-ebcfd00a9f45/go.mod h1:hGaE9Nd6EP9OJuiIvSaiB8dcX/RDTgkXRObngT649ng=
 github.com/cloudengio/go-keychain v0.0.0-20251125174133-2c25c9b378eb h1:zIj/zy0ZyEcytVaur2HcuKcTtnk+eb6NLNUUNb8qPd0=
 github.com/cloudengio/go-keychain v0.0.0-20251125174133-2c25c9b378eb/go.mod h1:hGaE9Nd6EP9OJuiIvSaiB8dcX/RDTgkXRObngT649ng=
+github.com/cloudengio/go-keychain v0.0.0-20251125180914-6ea4ac78a001 h1:us6+Jpn2m9Dl6ev9b0KiJjnwTfZRPgXnvsKEr9Pxrjw=
+github.com/cloudengio/go-keychain v0.0.0-20251125180914-6ea4ac78a001/go.mod h1:hGaE9Nd6EP9OJuiIvSaiB8dcX/RDTgkXRObngT649ng=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 golang.org/x/sys v0.38.0 h1:3yZWxaJjBmCWXqhN1qh02AkOnCQ1poK6oF+a7xWL6Gc=
 golang.org/x/sys v0.38.0/go.mod h1:OgkHotnGiDImocRcuBABYBEXf8A9a87e/uXjp9XT3ks=
