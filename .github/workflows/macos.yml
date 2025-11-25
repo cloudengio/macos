@@ -48,7 +48,7 @@ jobs:
         run: |
           security list-keychains
           security default-keychain
-          export KEYCHAIN_PATH=$(security list-keychain -d user | tr -d '"')
+          export KEYCHAIN_PATH="$(security list-keychain -d user | tr -d '"')"
           echo "keychain path: $KEYCHAIN_PATH"
           security default-keychain -s $KEYCHAIN_PATH
 

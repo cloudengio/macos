@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"cloudeng.io/os/executil"
@@ -44,9 +45,8 @@ func TestKeychainCommand(t *testing.T) {
 
 	// The account is the user's login name.
 	account := os.Getenv("USER")
-	keychainPath := os.Getenv("KEYCHAIN_PATH")
+	keychainPath := strings.TrimSpace(os.Getenv("KEYCHAIN_PATH"))
 	t.Logf("using keychain path: %q", keychainPath)
-	t.Logf("os.Environ: %v", os.Environ())
 
 	// Build the keychain command binary
 	keychainCmdPath, err := executil.GoBuild(ctx, filepath.Join(tmpDir, "keychain"), ".")
