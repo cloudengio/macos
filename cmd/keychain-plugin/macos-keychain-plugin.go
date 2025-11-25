@@ -14,14 +14,18 @@ import (
 	"cloudeng.io/logging/ctxlog"
 	"cloudeng.io/macos/keychain"
 	"cloudeng.io/macos/keychain/plugin"
-	gokeychain "github.com/cloudengio/go-keychain"
 )
 
 func main() {
 	if len(os.Args) > 1 {
 		possiblyHandleCommandLine(os.Args[1:])
 	}
-	gokeychain.PrintKeychainAccess()
+	fi, err := os.Stat("/Users/runner/work/_temp/keychain-ci-testing.keychain-db")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to stat keychain: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Fprintf(os.Stderr, "keychain info: %+v %d %v %v\n", fi.Name(), fi.Size(), fi.Mode(), fi.ModTime())
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	ctx := ctxlog.WithLogger(context.Background(), logger)
 	srv := plugin.NewServer(logger)

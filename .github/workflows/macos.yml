@@ -72,7 +72,7 @@ jobs:
 
           ls -la $(security default-keychain | tr -d '"')
           ls -la /Users/runner/work/_temp/
-          cd cmd/keychain
+          #cd cmd/keychain
           echo "yyy" > xxx
           go run . write --keychain-accessibility=when-unlocked --keychain-type=file --name=test-key xxx || true
 
