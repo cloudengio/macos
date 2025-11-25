@@ -45,7 +45,7 @@ jobs:
           (cd cmd/keychain-plugin; go generate .)
           macos-keychain-plugin --help || true
 
-      - name: test
+      - name: run go tests
         env:
           SKIP_KEYCHAIN_PLUGIN_TESTS: "skip"
         run: |
