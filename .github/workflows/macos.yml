@@ -39,6 +39,7 @@ jobs:
 
           go install cloudeng.io/macos/cmd/gobundle@latest
           (cd cmd/keychain-plugin; go generate .)
+          macos-keychain-plugin --help
 
           codesign -dv --verbose=4 /Users/runner/go/bin/macos-keychain-plugin
           codesign -dv --entitlements - --xml /Users/runner/go/bin/macos-keychain-plugin 2>&1 | grep xml | tidy -xml -i -q
