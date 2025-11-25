@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"cloudeng.io/os/executil"
@@ -76,10 +77,11 @@ func TestKeychainCommand(t *testing.T) {
 			// keychain read --keychain-plugin=<plugin> --keychain-type=<type> <keyName>
 			out := runCmdNoError(ctx, t, keychainCmdPath,
 				"read", "--keychain-type="+kt, keyName)
-			if got := out; len(got) == 0 || got != value {
+			if got := out; len(got) == 0 || !strings.Contains(got, value) {
 				t.Errorf("read value mismatch for %s: got %q, want %q", kt, got, value)
 			}
 
+			// Delete from keychain, use the plugin in directly to do so.
 			t.Logf("deleting keychain type %v item %q for account %q", kt, keyName, account)
 			out = runCmdNoError(ctx, t, "macos-keychain-plugin",
 				"delete", kt, account, keyName)

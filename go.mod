@@ -6,7 +6,7 @@ require (
 	cloudeng.io/cmdutil v0.0.0-20251122012532-070b66c9803a
 	cloudeng.io/logging v0.0.0-20251122012532-070b66c9803a
 	cloudeng.io/os v0.0.0-20251120181725-ae601f12dbbf
-	cloudeng.io/security v0.0.0-20251125021217-131da06a5809
+	cloudeng.io/security v0.0.0-20251125183018-c1f8db3ba610
 	cloudeng.io/text v0.0.13
 	github.com/cloudengio/go-keychain v0.0.0-20251125180914-6ea4ac78a001
 	gopkg.in/yaml.v3 v3.0.1
