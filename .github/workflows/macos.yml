@@ -32,6 +32,7 @@ jobs:
           CLOUDENG_DEVID: ${{ secrets.CLOUDENG_DEVID }}
           CLOUDENG_KEYCHAIN_IDENTIFIER: "keychain-github"
           GOBUNDLE_VERBOSE: "yes"
+
         run: |
           # security list-keychain -d user
           # security dump-keychain $(security list-keychain -d user)
@@ -44,6 +45,8 @@ jobs:
           security cms -D -i /Users/runner/work/_temp/provisioning.profile
 
       - name: test
+        env:
+          KEYCHAIN_PATH: $RUNNER_TEMP/keychain-ci-testing.keychain-db
         run: |
           security list-keychains
           security default-keychain
@@ -61,6 +64,7 @@ jobs:
           security default-keychain
           multimod --config=.multimod.yaml test || true
           log show --debug -last 1m 2>&1 | grep macos-keychain-plugin
+          exit 1
 
   lint:
     uses: cloudengio/.github/.github/workflows/go-lint-multimod.yml@main
