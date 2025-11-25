@@ -66,6 +66,7 @@ jobs:
           echo "without path"
           security dump-keychain | grep service_name
 
+          ls -la $(security default-keychain)
           cd cmd/keychain
           echo "yyy" > xxx
           go run . write --keychain-accessibility=when-unlocked --keychain-type=file --name=test-key xxx || true
