@@ -18,6 +18,8 @@ cloudeng.io/security v0.0.0-20251125021217-131da06a5809 h1:opZJLtBnweIFGHsiJZnjI
 cloudeng.io/security v0.0.0-20251125021217-131da06a5809/go.mod h1:Iq7eQRSrdt7xhOA7aBoLlNO1I7ENIwm6Jy6sPP7qbaU=
 cloudeng.io/security v0.0.0-20251125183018-c1f8db3ba610 h1:eer96meEmuZ9UJw7F6EcAddmkqOhqQcOUx+Q+fhEh74=
 cloudeng.io/security v0.0.0-20251125183018-c1f8db3ba610/go.mod h1:Iq7eQRSrdt7xhOA7aBoLlNO1I7ENIwm6Jy6sPP7qbaU=
+cloudeng.io/security v0.0.0-20251125185808-c30e6cae2e30 h1:k7AUxjV3itnxW2AT8/XbmBp3pPgK07YVuPj/Szi1DWg=
+cloudeng.io/security v0.0.0-20251125185808-c30e6cae2e30/go.mod h1:Iq7eQRSrdt7xhOA7aBoLlNO1I7ENIwm6Jy6sPP7qbaU=
 cloudeng.io/text v0.0.13 h1:ivKGX9ssgYKrXQt+csSOA/HTmsdbxrVUnkCQyikI7ok=
 cloudeng.io/text v0.0.13/go.mod h1:6rDG6qEzGxe8ePNBz7VwSf0ps9p9ihDB/uXSFR0CJvk=
 github.com/cloudengio/go-keychain v0.0.0-20251120230617-c4053f60cda7 h1:LgH6IfVJzTyEdvGxT3JwI3NHf6jJs5UJjmSbEMfjb0s=
