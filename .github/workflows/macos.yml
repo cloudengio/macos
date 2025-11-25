@@ -48,19 +48,22 @@ jobs:
       - name: test
         run: |
           set -x
-          security default-keychain -s $KEYCHAIN_PATH
 
           KEYCHAIN_PATH=$(security list-keychain -d user | tr -d '"' | sed 's/^ *//')
+          security default-keychain -s $KEYCHAIN_PATH
           echo $KEYCHAIN_PATH
+          echo "default keychain: $(security default-keychain)"
+          echo "all keychains: $(security list-keychains)"
+          echo "user keychains: $(security list-keychains -d user)"
+
 
           security add-generic-password -a "$USER" -s "service_name_0" -w "password_value_0" $KEYCHAIN_PATH
           security add-generic-password -a "$USER" -s "service_name_1" -w "password_value_1"
+
           echo "with path"
           security dump-keychain $KEYCHAIN_PATH | grep service_name
           echo "without path"
           security dump-keychain | grep service_name
-          security list-keychains
-          security default-keychain
 
           multimod --config=.multimod.yaml test || true
 
