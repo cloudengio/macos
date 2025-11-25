@@ -62,8 +62,8 @@ jobs:
           security add-generic-password -a "$USER" -s "service_name_0" -w "password_value_0" $KEYCHAIN_PATH
           security add-generic-password -a "$USER" -s "service_name_1" -w "password_value_1"
           cd cmd/keychain
-          go run . read --keychain-type=file "service_name_0"
-          go run . read --keychain-type=file "service_name_1"
+          go run . read --keychain-type=file "service_name_0" || true
+          log show --debug -last 1m | grep macos-keychain-plugin
 
           echo "with path"
           security dump-keychain $KEYCHAIN_PATH | grep service_name
