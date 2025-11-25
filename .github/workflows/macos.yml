@@ -43,9 +43,11 @@ jobs:
           # access to a keychain which we don't have in the runner.
           go install cloudeng.io/macos/cmd/gobundle@latest
           (cd cmd/keychain-plugin; go generate .)
-          macos-keychain-plugin --help
+          macos-keychain-plugin --help || true
 
       - name: test
+        env:
+          SKIP_KEYCHAIN_PLUGIN_TESTS: "skip"
         run: |
           multimod --config=.multimod.yaml test
 

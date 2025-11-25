@@ -40,6 +40,9 @@ func runCmdNoError(ctx context.Context, t *testing.T, name string, args ...strin
 }
 
 func TestKeychainCommand(t *testing.T) {
+	if os.Getenv("SKIP_KEYCHAIN_PLUGIN_TESTS") != "" {
+		t.Skip("skipping keychain plugin tests")
+	}
 	ctx := context.Background()
 	tmpDir := t.TempDir()
 
