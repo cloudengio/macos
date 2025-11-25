@@ -68,10 +68,9 @@ func (a *Accessibility) String() string {
 // KeychainFlags are commonly required flags for working with
 // the MacOS keychain plugin.
 type KeychainFlags struct {
-	Binary       string `subcmd:"keychain-plugin,,path to the plugin binary"`
-	KeychainPath string `subcmd:"keychain-path,,path to the keychain to use"`
-	Type         Type   `subcmd:"keychain-type,data-protection,'the type of keychain plugin to use: file, data-protection or icloud'"`
-	Account      string `subcmd:"keychain-account,,account that the keychain item belongs to"`
+	Binary  string `subcmd:"keychain-plugin,,path to the plugin binary"`
+	Type    Type   `subcmd:"keychain-type,data-protection,'the type of keychain plugin to use: file, data-protection or icloud'"`
+	Account string `subcmd:"keychain-account,,account that the keychain item belongs to"`
 }
 
 // ReadFlags are used for reading from the keychain plugin.
@@ -102,10 +101,9 @@ func (f KeychainFlags) Config() Config {
 		account = os.Getenv("USER")
 	}
 	return Config{
-		Binary:       f.Binary,
-		KeychainPath: f.KeychainPath,
-		Type:         keychain.Type(f.Type),
-		Account:      account,
+		Binary:  f.Binary,
+		Type:    keychain.Type(f.Type),
+		Account: account,
 	}
 }
 
@@ -123,7 +121,6 @@ func (f WriteFlags) Config() Config {
 // Config represents the configuration for a keychain plugin.
 type Config struct {
 	Binary        string                 `yaml:"plugin_binary"`
-	KeychainPath  string                 `yaml:"keychain_path"`
 	Type          keychain.Type          `yaml:"keychain_type"`
 	Account       string                 `yaml:"account"`
 	UpdateInPlace bool                   `yaml:"update_in_place"`
@@ -167,7 +164,6 @@ func (ps *Server) ReadRequest(ctx context.Context, rd io.Reader) (*Config, plugi
 	}
 	ps.logger.Info("new request",
 		"id", req.ID,
-		"keychain_path", cfg.KeychainPath,
 		"account", cfg.Account,
 		"key", req.Keyname,
 		"type", cfg.Type,
@@ -214,7 +210,6 @@ func (ps *Server) HandleRequest(ctx context.Context, cfg *Config, req plugins.Re
 	kc := keychain.New(cfg.Type, cfg.Account,
 		keychain.WithUpdateInPlace(cfg.UpdateInPlace),
 		keychain.WithAccessibility(cfg.Accessibility),
-		keychain.WithKeychain(cfg.KeychainPath),
 	)
 	if req.Write {
 		return ps.handleWrite(ctx, kc, req)

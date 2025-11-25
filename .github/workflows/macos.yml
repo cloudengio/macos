@@ -47,26 +47,25 @@ jobs:
 
       - name: test
         run: |
-          security list-keychains
-          security default-keychain
-          #export KEYCHAIN_PATH=$(security list-keychain -d user | tr -d '"' | sed 's/^ *//')
-          #echo "keychain path: $KEYCHAIN_PATH"
+          set -x
           security default-keychain -s $KEYCHAIN_PATH
 
-          #security dump-keychain $KEYCHAIN_PATH
-          #security add-generic-password -a "$USER" -s "service_name" -w "password_value" $KEYCHAIN_PATH
-          #security dump-keychain $KEYCHAIN_PATH
+          KEYCHAIN_PATH=$(security list-keychain -d user | tr -d '"' | sed 's/^ *//')
+          echo $KEYCHAIN_PATH
 
-          security add-generic-password -a "$USER" -s "service_name" -w "password_value" $KEYCHAIN_PATH
+          security add-generic-password -a "$USER" -s "service_name_0" -w "password_value_0" $KEYCHAIN_PATH
           security add-generic-password -a "$USER" -s "service_name_1" -w "password_value_1"
-          security dump-keychain $KEYCHAIN_PATH
+          echo "with path"
+          security dump-keychain $KEYCHAIN_PATH | grep service_name
+          echo "without path"
+          security dump-keychain | grep service_name
           security list-keychains
           security default-keychain
 
-          echo x | macos-keychain-plugin | true
-
           multimod --config=.multimod.yaml test || true
-          log show --debug -last 1m 2>&1 | grep keychain || true
+
+          security dump-keychain
+
           exit 1
 
   lint:
