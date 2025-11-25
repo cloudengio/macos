@@ -15,6 +15,7 @@ import (
 	"cloudeng.io/cmdutil/subcmd"
 	"cloudeng.io/macos/keychain/plugin"
 	"cloudeng.io/security/keys/keychain/plugins"
+	"github.com/cloudengio/go-keychain"
 )
 
 const cmdSpec = `name: keychain
@@ -39,8 +40,11 @@ func cli() *subcmd.CommandSetYAML {
 }
 
 func main() {
+	keychain.PrintKeychainAccess()
+
 	ctx := context.Background()
 	subcmd.Dispatch(ctx, cli())
+
 }
 
 type pluginCmd struct{}
