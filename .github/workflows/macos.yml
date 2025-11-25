@@ -62,8 +62,11 @@ jobs:
           security dump-keychain $KEYCHAIN_PATH
           security list-keychains
           security default-keychain
+
+          echo x | macos-keychain-plugin | true
+
           multimod --config=.multimod.yaml test || true
-          log show --debug -last 1m 2>&1 | grep macos-keychain-plugin
+          log show --debug -last 1m 2>&1 | grep keychain || true
           exit 1
 
   lint:
