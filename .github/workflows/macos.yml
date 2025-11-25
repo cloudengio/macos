@@ -61,6 +61,8 @@ jobs:
 
           security add-generic-password -a "$USER" -s "service_name_0" -w "password_value_0" $KEYCHAIN_PATH
           security add-generic-password -a "$USER" -s "service_name_1" -w "password_value_1"
+          go run . read --keychain-type=file "service_name_0"
+          go run . read --keychain-type=file "service_name_1"
 
           echo "with path"
           security dump-keychain $KEYCHAIN_PATH | grep service_name
@@ -72,6 +74,7 @@ jobs:
           cd cmd/keychain
           echo "yyy" > xxx
           go run . write --keychain-accessibility=when-unlocked --keychain-type=file --name=test-key xxx || true
+
           go run . read --keychain-type=file test-key || true
 
           #multimod --config=.multimod.yaml test || true
