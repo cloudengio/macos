@@ -21,7 +21,6 @@ jobs:
       - uses: actions/checkout@v5
       - uses: cloudengio/.github/.github/actions/go@main
       - uses: cloudengio/.github/.github/actions/apple-keychain@macos-signing
-      - uses: cloudengio/.github/.github/actions/apple-signing@macos-signing
         with:
           certificate-p12-base64: ${{ secrets.APPLE_SIGNING_CERTIFICATE }}
       - uses: cloudengio/.github/.github/actions/apple-provisioning@macos-signing
