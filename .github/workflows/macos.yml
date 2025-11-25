@@ -28,6 +28,7 @@ jobs:
         with:
           provisioning-profile-base64: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
           provisioning-profile-location: "provisioning.profile"
+
       - name: install keychain plugin
         env:
           CLOUDENG_SIGNING: ${{ secrets.CLOUDENG_SIGNING }}
@@ -49,17 +50,9 @@ jobs:
           security cms -D -i /Users/runner/work/_temp/provisioning.profile
 
       - name: test
-        id: test
         run: |
           set -x
-          USER_KEYCHAIN=$(security list-keychain -d user | tr -d '"' | sed 's/^ *//')
-          DEFAULT_KEYCHAIN=$(security default-keychain | tr -d '"' | sed 's/^ *//')
-          echo "user_keychain=$USER_KEYCHAIN" >> "$GITHUB_OUTPUT"
-          echo "default_keychain=$DEFAULT_KEYCHAIN" >> "$GITHUB_OUTPUT"
-
           KEYCHAIN_PATH=${{ steps.create-keychain.outputs.keychain-path }}
-          security list-keychains -d user -s $KEYCHAIN_PATH # Add the new keychain to the search path
-          security default-keychain -s $KEYCHAIN_PATH
           echo $KEYCHAIN_PATH
           echo "default keychain: $(security default-keychain)"
           echo "all keychains: $(security list-keychains)"
@@ -84,8 +77,10 @@ jobs:
         run: |
           set -x
           KEYCHAIN_PATH=${{ steps.create-keychain.outputs.keychain-path }}
-          security list-keychains -d user -s ${{ steps.test.outputs.user_keychain }} || true
-          security default-keychain -s ${{ steps.test.outputs.default_keychain }} || true
+          SYSTEM_USER_KEYCHAIN=${{ steps.create-keychain.outputs.system-user-keychain }}
+          SYSTEM_DEFAULT_KEYCHAIN=${{ steps.create-keychain.outputs.system-default-keychain }}  
+          security list-keychains -d user -s $SYSTEM_USER_KEYCHAIN || true
+          security default-keychain -s $SYSTEM_DEFAULT_KEYCHAIN || true
           security delete-keychain "$KEYCHAIN_PATH" || true
 
   lint:
