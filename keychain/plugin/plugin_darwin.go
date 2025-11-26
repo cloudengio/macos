@@ -209,7 +209,8 @@ func (ps *Server) handleRead(ctx context.Context, kc *keychain.T, req plugins.Re
 func (ps *Server) HandleRequest(ctx context.Context, cfg *Config, req plugins.Request) *plugins.Response {
 	kc := keychain.New(cfg.Type, cfg.Account,
 		keychain.WithUpdateInPlace(cfg.UpdateInPlace),
-		keychain.WithAccessibility(cfg.Accessibility))
+		keychain.WithAccessibility(cfg.Accessibility),
+	)
 	if req.Write {
 		return ps.handleWrite(ctx, kc, req)
 	}

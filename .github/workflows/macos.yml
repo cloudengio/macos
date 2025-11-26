@@ -11,11 +11,56 @@ permissions:
 
 jobs:
   test:
-    uses: cloudengio/.github/.github/workflows/go-test-multimod.yml@main
-    with:
-      os-version: macos-latest
-      go-versions: |
-        [ "1.25.x" ]
+    strategy:
+      matrix:
+        go-version: ["1.25.x"]
+
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cloudengio/.github/.github/actions/go@main
+      - uses: cloudengio/.github/.github/actions/apple-keychain@main
+        id: create-keychain
+        with:
+          certificate-p12-base64: ${{ secrets.APPLE_SIGNING_CERTIFICATE }}
+      - uses: cloudengio/.github/.github/actions/apple-provisioning@main
+        with:
+          provisioning-profile-base64: ${{ secrets.APPLE_PROVISIONING_PROFILE }}
+          provisioning-profile-location: "provisioning.profile"
+
+      - name: install keychain plugin
+        env:
+          CLOUDENG_SIGNING: ${{ secrets.CLOUDENG_SIGNING }}
+          CLOUDENG_KEYCHAIN_PROFILE: $RUNNER_TEMP/provisioning.profile
+          CLOUDENG_DEVID: ${{ secrets.CLOUDENG_DEVID }}
+          CLOUDENG_KEYCHAIN_IDENTIFIER: "keychain-github"
+          GOBUNDLE_VERBOSE: "yes"
+
+        run: |
+          # Make sure we can build and run the keychain plugin
+          # though we can't actually test it here since it requires
+          # access to a keychain which we don't have in the runner.
+          go install cloudeng.io/macos/cmd/gobundle@latest
+          (cd cmd/keychain-plugin; go generate .)
+          macos-keychain-plugin --help || true
+
+      - name: run go tests
+        env:
+          SKIP_KEYCHAIN_PLUGIN_TESTS: "skip"
+        run: |
+          multimod --config=.multimod.yaml test
+
+      - name: cleanup
+        if: always()
+        run: |
+          set -x
+          KEYCHAIN_PATH=${{ steps.create-keychain.outputs.keychain-path }}
+          SYSTEM_USER_KEYCHAIN=${{ steps.create-keychain.outputs.system-user-keychain }}
+          SYSTEM_DEFAULT_KEYCHAIN=${{ steps.create-keychain.outputs.system-default-keychain }}  
+          security list-keychains -d user -s $SYSTEM_USER_KEYCHAIN || true
+          security default-keychain -s $SYSTEM_DEFAULT_KEYCHAIN || true
+          security delete-keychain "$KEYCHAIN_PATH" || true
 
   lint:
     uses: cloudengio/.github/.github/workflows/go-lint-multimod.yml@main
