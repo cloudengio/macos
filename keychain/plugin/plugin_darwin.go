@@ -31,20 +31,40 @@ func NewWriteRequest(keyname string, contents []byte, cfg Config) (plugins.Reque
 	return plugins.NewWriteRequest(keyname, contents, cfg)
 }
 
-// Type represents the type of keychain plugin to use.
+// WriteType represents the type of keychain plugin to use for writing.
 // It aliases keychain.Type in order to add flag.Value support.
-type Type keychain.Type
+type WriteType keychain.Type
 
-func (t *Type) Set(v string) error {
+func (t *WriteType) Set(v string) error {
 	kt, err := keychain.ParseType(v)
 	if err != nil {
 		return err
 	}
-	*t = Type(kt)
+	if kt == keychain.KeychainAll {
+		return errors.New("type 'all' is not valid for writing")
+	}
+	*t = WriteType(kt)
 	return nil
 }
 
-func (t *Type) String() string {
+func (t *WriteType) String() string {
+	return keychain.Type(*t).String()
+}
+
+// ReadType represents the type of keychain plugin to use for reading.
+// It aliases keychain.Type in order to add flag.Value support.
+type ReadType keychain.Type
+
+func (t *ReadType) Set(v string) error {
+	kt, err := keychain.ParseType(v)
+	if err != nil {
+		return err
+	}
+	*t = ReadType(kt)
+	return nil
+}
+
+func (t *ReadType) String() string {
 	return keychain.Type(*t).String()
 }
 
@@ -69,18 +89,21 @@ func (a *Accessibility) String() string {
 // the MacOS keychain plugin.
 type KeychainFlags struct {
 	Binary  string `subcmd:"keychain-plugin,,path to the plugin binary"`
-	Type    Type   `subcmd:"keychain-type,data-protection,'the type of keychain plugin to use: file, data-protection or icloud'"`
 	Account string `subcmd:"keychain-account,,account that the keychain item belongs to"`
 }
 
 // ReadFlags are used for reading from the keychain plugin.
 type ReadFlags struct {
 	KeychainFlags
+	// Note that the default value is 'all' for reading but 'icloud' for writing.
+	Type ReadType `subcmd:"keychain-type,all,'the type of keychain plugin to use: file, data-protection, icloud or all'"`
 }
 
 // WriteFlags are used for writing to the keychain plugin.
 type WriteFlags struct {
 	KeychainFlags
+	// Note that the default value is 'all' for reading but 'icloud' for writing.
+	Type          WriteType     `subcmd:"keychain-type,icloud,'the type of keychain plugin to use: file, data-protection or icloud'"`
 	UpdateInPlace bool          `subcmd:"keychain-update-in-place,false,set to true to update existing note in place"`
 	Accessibility Accessibility `subcmd:"keychain-accessibility,,optional accessibility level for the keychain item"`
 }
@@ -92,7 +115,7 @@ const PluginBinaryDefaultName = "macos-keychain-plugin"
 // It provides a default value for the plugin binary if one is not specified
 // in the flags and a default account of os.Getenv("USER") if no account
 // is specified.
-func (f KeychainFlags) Config() Config {
+func (f KeychainFlags) pluginConfig() Config {
 	if f.Binary == "" {
 		f.Binary = PluginBinaryDefaultName
 	}
@@ -102,17 +125,19 @@ func (f KeychainFlags) Config() Config {
 	}
 	return Config{
 		Binary:  f.Binary,
-		Type:    keychain.Type(f.Type),
 		Account: account,
 	}
 }
 
 func (f ReadFlags) Config() Config {
-	return f.KeychainFlags.Config()
+	c := f.KeychainFlags.pluginConfig()
+	c.Type = keychain.Type(f.Type)
+	return c
 }
 
 func (f WriteFlags) Config() Config {
-	cfg := f.KeychainFlags.Config()
+	cfg := f.KeychainFlags.pluginConfig()
+	cfg.Type = keychain.Type(f.Type)
 	cfg.UpdateInPlace = f.UpdateInPlace
 	cfg.Accessibility = keychain.Accessibility(f.Accessibility)
 	return cfg
