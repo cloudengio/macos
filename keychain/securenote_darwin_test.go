@@ -153,7 +153,7 @@ func TestWriteDataProtectionReadAll(t *testing.T) {
 	account := "test-account"
 	data := []byte("test-data-for-all")
 
-	// Write to data protection keychain.
+	// Write to data filebased keychain.
 	kcWrite := keychain.New(keychain.KeychainFileBased, account)
 	// Cleanup before test
 	_ = kcWrite.DeleteSecureNote(service)

@@ -199,6 +199,9 @@ func (kc T) configure(item *keychain.Item, typ Type) {
 // WriteSecureNote writes a secure note to the keychain. It will update
 // an existing note if it WithUpdateInPlace was set to true.
 func (kc T) WriteSecureNote(service string, data []byte) error {
+	if kc.typ == KeychainAll {
+		return fmt.Errorf("cannot write to keychain of type 'all'")
+	}
 	item := keychain.NewItem()
 	kc.configure(&item, kc.typ)
 	item.SetService(service)
@@ -219,10 +222,12 @@ func (kc T) WriteSecureNote(service string, data []byte) error {
 
 // UpdateSecureNote updates an existing secure note in the keychain.
 func (kc T) UpdateSecureNote(service string, data []byte) error {
+	if kc.typ == KeychainAll {
+		return fmt.Errorf("cannot update keychain of type 'all'")
+	}
 	return kc.updateSecureNote(service, data, kc.typ)
 }
 
-// UpdateSecureNote updates an existing secure note in the keychain.
 func (kc T) updateSecureNote(service string, data []byte, typ Type) error {
 	item := keychain.NewItem()
 	item.SetData(data)
@@ -292,6 +297,9 @@ func (kc T) ReadSecureNote(service string) (data []byte, err error) {
 
 // DeleteSecureNote deletes a secure note from the keychain.
 func (kc T) DeleteSecureNote(service string) error {
+	if kc.typ == KeychainAll {
+		return fmt.Errorf("cannot delete from keychain of type 'all'")
+	}
 	result, err := kc.queryNote(service, kc.typ)
 	if err != nil {
 		return err
