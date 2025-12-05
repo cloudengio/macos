@@ -58,6 +58,10 @@ const (
 	// Applications that use must be signed and have appropriate
 	// entitlements.
 	KeychainICloud
+	// KeychainAll represents any keychain type, it can only be used for
+	// reading and indicates that all keychains will be searched for
+	// the requested item.
+	KeychainAll
 )
 
 // Accessibility is the items accessibility
@@ -129,6 +133,8 @@ func (t Type) String() string {
 		return "data-protection-local"
 	case KeychainICloud:
 		return "icloud"
+	case KeychainAll:
+		return "all"
 	default:
 		return "unknown"
 	}
@@ -143,6 +149,8 @@ func ParseType(s string) (Type, error) {
 		return KeychainDataProtectionLocal, nil
 	case "icloud":
 		return KeychainICloud, nil
+	case "all", "":
+		return KeychainAll, nil
 	default:
 		return 0, fmt.Errorf("invalid keychain type: %s", s)
 	}
@@ -177,9 +185,9 @@ func NewReadonly(typ Type, account string, opts ...Option) SecureNoteReader {
 	return newKeychain(true, typ, account, opts...)
 }
 
-func (kc T) configure(item *keychain.Item) {
+func (kc T) configure(item *keychain.Item, typ Type) {
 	item.SetSecClass(keychain.SecClassGenericPassword)
-	switch kc.typ {
+	switch typ {
 	case KeychainFileBased:
 	case KeychainDataProtectionLocal:
 		item.SetDataProtectionKeyChain(true)
@@ -191,11 +199,18 @@ func (kc T) configure(item *keychain.Item) {
 // WriteSecureNote writes a secure note to the keychain. It will update
 // an existing note if it WithUpdateInPlace was set to true.
 func (kc T) WriteSecureNote(service string, data []byte) error {
-	item := kc.newItem(service, data)
+	item := keychain.NewItem()
+	kc.configure(&item, kc.typ)
+	item.SetService(service)
+	item.SetLabel(service)
+	item.SetAccount(kc.account)
+	item.SetDescription("secure note")
+	item.SetData(data)
+	item.SetAccessible(keychain.Accessible(kc.opts.accessibility))
 	err := keychain.AddItem(item)
 	if err == keychain.ErrorDuplicateItem {
 		if kc.opts.updateInPlace {
-			return kc.UpdateSecureNote(service, data)
+			return kc.updateSecureNote(service, data, kc.typ)
 		}
 		err = fs.ErrExist
 	}
@@ -204,16 +219,22 @@ func (kc T) WriteSecureNote(service string, data []byte) error {
 
 // UpdateSecureNote updates an existing secure note in the keychain.
 func (kc T) UpdateSecureNote(service string, data []byte) error {
+	return kc.updateSecureNote(service, data, kc.typ)
+}
+
+// UpdateSecureNote updates an existing secure note in the keychain.
+func (kc T) updateSecureNote(service string, data []byte, typ Type) error {
 	item := keychain.NewItem()
 	item.SetData(data)
-	query := kc.queryItem(kc.account, service)
+	query := kc.queryItem(kc.account, service, typ)
 	return keychain.UpdateItem(query, item)
 }
 
-func (kc T) queryItem(account, service string) keychain.Item {
+func (kc T) queryItem(account, service string, typ Type) keychain.Item {
 	query := keychain.NewItem()
-	kc.configure(&query)
+	kc.configure(&query, typ)
 	query.SetService(service)
+	query.SetLabel(service)
 	query.SetAccount(account)
 	query.SetReturnData(true)
 	query.SetMatchLimit(keychain.MatchLimitOne)
@@ -221,19 +242,8 @@ func (kc T) queryItem(account, service string) keychain.Item {
 	return query
 }
 
-func (kc T) newItem(service string, data []byte) keychain.Item {
-	item := keychain.NewItem()
-	kc.configure(&item)
-	item.SetService(service)
-	item.SetAccount(kc.account)
-	item.SetDescription("secure note")
-	item.SetData(data)
-	item.SetAccessible(keychain.Accessible(kc.opts.accessibility))
-	return item
-}
-
-func (kc T) queryNote(service string) (keychain.QueryResult, error) {
-	query := kc.queryItem(kc.account, service)
+func (kc T) queryNote(service string, typ Type) (keychain.QueryResult, error) {
+	query := kc.queryItem(kc.account, service, typ)
 	results, err := keychain.QueryItem(query)
 	if err != nil {
 		return keychain.QueryResult{}, err
@@ -244,34 +254,50 @@ func (kc T) queryNote(service string) (keychain.QueryResult, error) {
 	return results[0], nil
 }
 
+var searchListAll = []Type{
+	KeychainICloud,
+	KeychainDataProtectionLocal,
+	KeychainFileBased,
+}
+
 // ReadSecureNote reads a secure note from the keychain.
-func (kc T) ReadSecureNote(service string) ([]byte, error) {
-	result, err := kc.queryNote(service)
-	if err != nil {
-		return nil, err
+func (kc T) ReadSecureNote(service string) (data []byte, err error) {
+	searchList := []Type{kc.typ}
+	if kc.typ == KeychainAll {
+		searchList = searchListAll
 	}
-	data, err := extractKeychainNote(result.Data)
-	if err == io.EOF {
-		// Maybe not an XML plist document.
-		if len(result.Data) > 0 {
-			return result.Data, nil
+	for _, typ := range searchList {
+		result, err := kc.queryNote(service, typ)
+		if err != nil {
+			if err == fs.ErrNotExist {
+				continue
+			}
+			return nil, err
 		}
-		return nil, err
+		data, err := extractKeychainNote(result.Data)
+		if err == io.EOF {
+			// Maybe not an XML plist document.
+			if len(result.Data) > 0 {
+				return result.Data, nil
+			}
+			return nil, err
+		}
+		if err != nil {
+			return nil, err
+		}
+		return data, err
 	}
-	if err != nil {
-		return nil, err
-	}
-	return data, err
+	return nil, fs.ErrNotExist
 }
 
 // DeleteSecureNote deletes a secure note from the keychain.
 func (kc T) DeleteSecureNote(service string) error {
-	result, err := kc.queryNote(service)
+	result, err := kc.queryNote(service, kc.typ)
 	if err != nil {
 		return err
 	}
 	item := keychain.NewItem()
-	kc.configure(&item)
+	kc.configure(&item, kc.typ)
 	item.SetService(result.Service)
 	item.SetAccount(result.Account)
 	item.SetDescription(result.Description)

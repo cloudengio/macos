@@ -149,3 +149,57 @@ func TestSendResponse(t *testing.T) {
 	}
 
 }
+
+func TestReadWriteTypes(t *testing.T) {
+	var r plugin.ReadType
+	if err := r.Set("all"); err != nil {
+		t.Fatalf("failed to set read type: %v", err)
+	}
+	if got, want := r.String(), "all"; got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	if err := r.Set("invalid"); err == nil {
+		t.Errorf("expected an error for invalid type")
+	}
+
+	var w plugin.WriteType
+	if err := w.Set("icloud"); err != nil {
+		t.Fatalf("failed to set write type: %v", err)
+	}
+	if got, want := w.String(), "icloud"; got != want {
+		t.Errorf("got %v, want %v", got, want)
+	}
+	if err := w.Set("all"); err == nil {
+		t.Errorf("expected an error for 'all' with write type")
+	}
+	if err := w.Set("invalid"); err == nil {
+		t.Errorf("expected an error for invalid type")
+	}
+}
+
+func TestReadFlags(t *testing.T) {
+	args := []string{
+		"--keychain-plugin=./testdata/example_plugin",
+		"--keychain-type=all",
+		"--keychain-account=test-account",
+	}
+	var flagCfg plugin.ReadFlags
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	if err := flags.RegisterFlagsInStruct(fs, "subcmd", &flagCfg, nil, nil); err != nil {
+		t.Fatalf("failed to register flags: %v", err)
+	}
+	if err := fs.Parse(args); err != nil {
+		t.Fatalf("failed to parse flags: %v", err)
+	}
+
+	cfg := flagCfg.Config()
+	if got, want := cfg.Binary, "./testdata/example_plugin"; got != want {
+		t.Errorf("got Binary %q, want %q", got, want)
+	}
+	if got, want := cfg.Type, keychain.KeychainAll; got != want {
+		t.Errorf("got Type %v, want %v", got, want)
+	}
+	if got, want := cfg.Account, "test-account"; got != want {
+		t.Errorf("got Account %q, want %q", got, want)
+	}
+}
