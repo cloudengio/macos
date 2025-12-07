@@ -239,7 +239,6 @@ func (kc T) queryItem(account, service string, typ Type) keychain.Item {
 	query := keychain.NewItem()
 	kc.configure(&query, typ)
 	query.SetService(service)
-	query.SetLabel(service)
 	query.SetAccount(account)
 	query.SetReturnData(true)
 	query.SetMatchLimit(keychain.MatchLimitOne)

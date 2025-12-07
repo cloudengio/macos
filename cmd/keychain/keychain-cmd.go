@@ -41,17 +41,13 @@ func cli() *subcmd.CommandSetYAML {
 func main() {
 	ctx := context.Background()
 	subcmd.Dispatch(ctx, cli())
-
 }
 
 type pluginCmd struct{}
 
-type VerboseFlag struct {
-	Verbose bool `subcmd:"verbose,false,enable verbose logging"`
-}
-
 type ReadFlags struct {
 	plugin.ReadFlags
+	OutputFile string `subcmd:"output-file,,'output file to write the item to, use - for stdout'"`
 }
 
 type WriteFlags struct {
@@ -65,9 +61,19 @@ func (pluginCmd) Read(ctx context.Context, f any, args []string) error {
 	fs := plugins.NewFS(cfg.Binary, cfg)
 	contents, err := fs.ReadFileCtx(ctx, args[0])
 	if err != nil {
-		return handleError(err)
+		return fmt.Errorf("%s: %w", args[0], handleError(err))
 	}
-	fmt.Printf("%s", string(contents))
+	if len(fl.OutputFile) != 0 {
+		if fl.OutputFile == "-" {
+			os.Stdout.Write(contents)
+		} else {
+			if err := os.WriteFile(fl.OutputFile, contents, 0600); err != nil {
+				return handleError(err)
+			}
+		}
+		return nil
+	}
+	fmt.Printf("%s: exists, use --output-file to write to a file, use - for stdout\n", args[0])
 	return nil
 }
 
