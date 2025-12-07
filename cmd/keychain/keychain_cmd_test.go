@@ -79,7 +79,7 @@ func TestKeychainCommand(t *testing.T) {
 			// Read from keychain
 			// keychain read --keychain-plugin=<plugin> --keychain-type=<type> <keyName>
 			out := runCmdNoError(ctx, t, keychainCmdPath,
-				"read", "--keychain-type="+kt, keyName)
+				"read", "--keychain-type="+kt, "--output=-", keyName)
 			if got := out; len(got) == 0 || !strings.Contains(got, value) {
 				t.Errorf("read value mismatch for %s: got %q, want %q", kt, got, value)
 			}
@@ -91,7 +91,7 @@ func TestKeychainCommand(t *testing.T) {
 			t.Log("delete output:", out)
 
 			_, err = runCmd(ctx, keychainCmdPath,
-				"read", "--keychain-type="+kt, keyName)
+				"read", "--keychain-type="+kt, "--output=-", keyName)
 			if err == nil {
 				t.Errorf("expected error when reading deleted keychain item %q for account %q, got none", keyName, account)
 			}

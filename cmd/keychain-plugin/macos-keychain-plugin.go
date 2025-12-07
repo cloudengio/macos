@@ -32,7 +32,7 @@ func main() {
 	srv.SendResponse(ctx, os.Stdout, resp)
 }
 
-const usage = `Usage: [--help|delete keychain-type account service]
+const usage = `Usage: [--help|delete keychain-type account service|read keychain-type account service]
 
 macos-keychain-plugin is a plugin for the macOS keychain.
 To install it 'run go generate' in the go/cmd/keychain-plugin directory
@@ -49,23 +49,45 @@ func possiblyHandleCommandLine(args []string) {
 	if len(args) != 4 {
 		return
 	}
-	if args[0] != "delete" {
+	switch args[0] {
+	case "delete":
+		delete(args)
+	case "read":
+		read(args)
+	default:
 		fmt.Print(usage)
 		os.Exit(1)
 	}
-	kt := args[1]
-	account := args[2]
-	service := args[3]
-	ktt, err := keychain.ParseType(kt)
+}
+
+func parseArgs(args []string) (kt keychain.Type, account, service string, kc *keychain.T) {
+	account = args[2]
+	service = args[3]
+	kt, err := keychain.ParseType(args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to parse keychain type %q: %v\n", kt, err)
+		fmt.Fprintf(os.Stderr, "failed to parse keychain type %q: %v\n", args[1], err)
 		os.Exit(1)
 	}
-	sn := keychain.New(ktt, account)
-	if err := sn.DeleteSecureNote(service); err != nil {
+	return kt, account, service, keychain.New(kt, account)
+}
+
+func delete(args []string) {
+	kt, account, service, kc := parseArgs(args)
+	if err := kc.DeleteSecureNote(service); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to delete keychain item %q for account %q: %v\n", service, account, err)
 		os.Exit(1)
 	}
 	fmt.Printf("Deleted keychain item %q (account %s) from %s keychain \n", service, account, kt)
+	os.Exit(0)
+}
+
+func read(args []string) {
+	kt, account, service, kc := parseArgs(args)
+	contents, err := kc.ReadSecureNote(service)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to read keychain item %q for account %q: %v\n", service, account, err)
+		os.Exit(1)
+	}
+	fmt.Printf("%v %v: %v bytes from keychain: %s\n", service, account, len(contents), kt)
 	os.Exit(0)
 }
