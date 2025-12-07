@@ -60,17 +60,20 @@ func possiblyHandleCommandLine(args []string) {
 	}
 }
 
-func delete(args []string) {
-	kt := args[1]
-	account := args[2]
-	service := args[3]
-	ktt, err := keychain.ParseType(kt)
+func parseArgs(args []string) (kt keychain.Type, account, service string, kc *keychain.T) {
+	account = args[2]
+	service = args[3]
+	kt, err := keychain.ParseType(args[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to parse keychain type %q: %v\n", kt, err)
+		fmt.Fprintf(os.Stderr, "failed to parse keychain type %q: %v\n", args[1], err)
 		os.Exit(1)
 	}
-	sn := keychain.New(ktt, account)
-	if err := sn.DeleteSecureNote(service); err != nil {
+	return kt, account, service, keychain.New(kt, account)
+}
+
+func delete(args []string) {
+	kt, account, service, kc := parseArgs(args)
+	if err := kc.DeleteSecureNote(service); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to delete keychain item %q for account %q: %v\n", service, account, err)
 		os.Exit(1)
 	}
@@ -79,20 +82,12 @@ func delete(args []string) {
 }
 
 func read(args []string) {
-	kt := args[1]
-	account := args[2]
-	service := args[3]
-	ktt, err := keychain.ParseType(kt)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to parse keychain type %q: %v\n", kt, err)
-		os.Exit(1)
-	}
-	sn := keychain.New(ktt, account)
-	contents, err := sn.ReadSecureNote(service)
+	kt, account, service, kc := parseArgs(args)
+	contents, err := kc.ReadSecureNote(service)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to read keychain item %q for account %q: %v\n", service, account, err)
 		os.Exit(1)
 	}
-	fmt.Printf("%v %v: %v bytes\n", service, account, len(contents))
+	fmt.Printf("%v %v: %v bytes from keychain: %s\n", service, account, len(contents), kt)
 	os.Exit(0)
 }

@@ -47,7 +47,7 @@ type pluginCmd struct{}
 
 type ReadFlags struct {
 	plugin.ReadFlags
-	OutputFile string `subcmd:"output-file,,'output file to write the item to, use - for stdout'"`
+	OutputFile string `subcmd:"output,,'output file to write the item to, use - for stdout'"`
 }
 
 type WriteFlags struct {
