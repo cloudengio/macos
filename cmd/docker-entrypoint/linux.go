@@ -27,14 +27,13 @@ func (dockerCmds) run(_ context.Context, _ any, _ []string) error {
 
 type EntryFlags struct{}
 
-func (dc dockerCmds) entry(_ context.Context, _ any, args []string) error {
-	fmt.Printf("docker-entrypoint: args: %v\n", args)
+func (dc dockerCmds) entry(ctx context.Context, _ any, args []string) error {
 	ims, err := readIMS(os.Stdin)
 	if err != nil {
 		return err
 	}
 	if ims != nil {
-		if err := dc.writeKeys(ims); err != nil {
+		if err := dc.writeKeys(ctx, ims); err != nil {
 			return err
 		}
 	}
@@ -46,12 +45,10 @@ func (dc dockerCmds) entry(_ context.Context, _ any, args []string) error {
 	for _, a := range args {
 		fmt.Fprintf(&argstr, "%q ", a)
 	}
-	fmt.Printf("docker-entrypoint: exec: %v %v\n", binary, argstr.String())
 	return syscall.Exec(binary, args, os.Environ())
 }
 
-func (dc dockerCmds) writeKeys(ims *keys.InMemoryKeyStore) error {
-	ctx := context.Background()
+func (dc dockerCmds) writeKeys(ctx context.Context, ims *keys.InMemoryKeyStore) error {
 	kr, err := keyctl.SessionKeyring()
 	if err != nil {
 		return fmt.Errorf("failed to get session keyring: %v", err)

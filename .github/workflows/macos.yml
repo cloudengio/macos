@@ -48,6 +48,7 @@ jobs:
       - name: run go tests
         env:
           SKIP_KEYCHAIN_PLUGIN_TESTS: "skip"
+          SKIP_DOCKER_TESTS: "skip"
         run: |
           multimod --config=.multimod.yaml test
 

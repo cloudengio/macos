@@ -21,7 +21,7 @@ import (
 
 type RunFlags struct {
 	plugin.ReadFlags
-	KeychainItem string `subcmd:"keychain-item,,keychain item to read keys.Info from"`
+	KeychainItem string `subcmd:"keychain-item,,'keychain item to read, the item should be in cloudeng.io/cmdutil/keys format'"`
 }
 
 func (dc dockerCmds) run(ctx context.Context, f any, args []string) error {
