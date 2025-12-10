@@ -20,9 +20,9 @@ func (kc T) WriteFileCtx(_ context.Context, service string, data []byte, _ fs.Fi
 }
 
 func (kc T) ReadFile(service string) ([]byte, error) {
-	return kc.ReadSecureNote(service)
+	return kc.ReadFileCtx(context.Background(), service)
 }
 
 func (kc T) WriteFile(service string, data []byte, _ fs.FileMode) error {
-	return kc.WriteSecureNote(service, data)
+	return kc.WriteFileCtx(context.Background(), service, data, 0600)
 }

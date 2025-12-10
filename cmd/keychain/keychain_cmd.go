@@ -91,7 +91,7 @@ func (pluginCmd) Write(ctx context.Context, f any, args []string) error {
 		return err
 	}
 	fmt.Printf("writing item %q to keychain\n", name)
-	err = fs.WriteFileCtx(ctx, name, contents, 0000)
+	err = fs.WriteFileCtx(ctx, name, contents, 0600)
 	return handleError(err)
 }
 
