@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"testing"
 
+	"cloudeng.io/file"
 	"cloudeng.io/macos/keychain"
 )
 
@@ -177,4 +178,9 @@ func TestWriteDataProtectionReadAll(t *testing.T) {
 	if err := kcWrite.DeleteSecureNote(service); err != nil {
 		t.Fatalf("failed to delete secure note: %v", err)
 	}
+}
+
+func TestFS(t *testing.T) {
+	var _ file.ReadFileFS = keychain.New(keychain.KeychainFileBased, "test-account")
+	var _ file.WriteFileFS = keychain.New(keychain.KeychainFileBased, "test-account")
 }

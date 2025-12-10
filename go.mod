@@ -3,7 +3,7 @@ module cloudeng.io/macos
 go 1.25.5
 
 require (
-	cloudeng.io/cmdutil v0.0.0-20251208163045-9b42e92aeda3
+	cloudeng.io/cmdutil v0.0.0-20251210231338-d661eee74313
 	cloudeng.io/linux v0.0.0-20251206055912-df09039c8e99
 	cloudeng.io/logging v0.0.0-20251208163045-9b42e92aeda3
 	cloudeng.io/os v0.0.0-20251120181725-ae601f12dbbf
