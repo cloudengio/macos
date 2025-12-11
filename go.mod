@@ -7,7 +7,7 @@ require (
 	cloudeng.io/cmdutil v0.0.0-20251210231338-d661eee74313
 	cloudeng.io/linux v0.0.0-20251206055912-df09039c8e99
 	cloudeng.io/logging v0.0.0-20251210231338-d661eee74313
-	cloudeng.io/os v0.0.0-20251210223200-d710d758807c
+	cloudeng.io/os v0.0.0-20251210231338-d661eee74313
 	cloudeng.io/security v0.0.0-20251210231338-d661eee74313
 	cloudeng.io/text v0.0.13
 	github.com/aws/aws-sdk-go-v2 v1.41.0
