@@ -2,6 +2,8 @@ cloudeng.io/cmdutil v0.0.0-20251122012532-070b66c9803a h1:YtlKaCCdn6nzckqXTLn7jl
 cloudeng.io/cmdutil v0.0.0-20251122012532-070b66c9803a/go.mod h1:FOMZ13e4NUrAGTiqb7EY4nRZWfwbZUz3TL86Z5kJftA=
 cloudeng.io/cmdutil v0.0.0-20251208163045-9b42e92aeda3 h1:whgjZiY1AzLaGxNAEO6nRP4scqnZ/mV4lfV5ELjXU44=
 cloudeng.io/cmdutil v0.0.0-20251208163045-9b42e92aeda3/go.mod h1:FOMZ13e4NUrAGTiqb7EY4nRZWfwbZUz3TL86Z5kJftA=
+cloudeng.io/cmdutil v0.0.0-20251210231338-d661eee74313 h1:QNrKQJfgTxKKAYXjnsq6AgIUJBX70x3AFDkI14x1Tds=
+cloudeng.io/cmdutil v0.0.0-20251210231338-d661eee74313/go.mod h1:FOMZ13e4NUrAGTiqb7EY4nRZWfwbZUz3TL86Z5kJftA=
 cloudeng.io/errors v0.0.13-0.20251104013446-a84136171725 h1:mhCFtK326UvQpY4UvjhOJODVu1CqDpZMB3mrjkQ3Rz0=
 cloudeng.io/errors v0.0.13-0.20251104013446-a84136171725/go.mod h1:+IAMDlCNxHDxlWE9vjkPxED0d7Wzt7Nl3REebuCO4m8=
 cloudeng.io/file v0.0.0-20251122012532-070b66c9803a h1:ATmhZRC5fhZ82AYMQ63yzCBIlI1IzKxJwPZFRcqVYQo=
@@ -32,6 +34,8 @@ cloudeng.io/security v0.0.0-20251125212038-1e8b65a7457e h1:/qsPjOkzAThqnQ3P3vQJl
 cloudeng.io/security v0.0.0-20251125212038-1e8b65a7457e/go.mod h1:Iq7eQRSrdt7xhOA7aBoLlNO1I7ENIwm6Jy6sPP7qbaU=
 cloudeng.io/security v0.0.0-20251208163045-9b42e92aeda3 h1:XwbU654eKp8sIP1KYvdzbx72KJgmgxfgKw6Gd5JKyUw=
 cloudeng.io/security v0.0.0-20251208163045-9b42e92aeda3/go.mod h1:Iq7eQRSrdt7xhOA7aBoLlNO1I7ENIwm6Jy6sPP7qbaU=
+cloudeng.io/security v0.0.0-20251210231338-d661eee74313 h1:YC9eRIN13AA3AHG4/mM/7DrLsMw6xl2nQvETso9TN8o=
+cloudeng.io/security v0.0.0-20251210231338-d661eee74313/go.mod h1:Iq7eQRSrdt7xhOA7aBoLlNO1I7ENIwm6Jy6sPP7qbaU=
 cloudeng.io/text v0.0.13 h1:ivKGX9ssgYKrXQt+csSOA/HTmsdbxrVUnkCQyikI7ok=
 cloudeng.io/text v0.0.13/go.mod h1:6rDG6qEzGxe8ePNBz7VwSf0ps9p9ihDB/uXSFR0CJvk=
 github.com/cloudengio/go-keychain v0.0.0-20251120230617-c4053f60cda7 h1:LgH6IfVJzTyEdvGxT3JwI3NHf6jJs5UJjmSbEMfjb0s=

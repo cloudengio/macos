@@ -6,7 +6,9 @@ FROM golang:1.25 AS builder
 WORKDIR /go/src/app
 
 COPY . .
-RUN go mod init cloudeng.io/macos/cmd/docker-entrypoint && \
+# Use a module name that doesn't exist to avoid confusion with the actual module
+# we are testing here.
+RUN go mod init cloudeng.io/macos/cmd/docker-entrypoint-test && \
     go mod download && \
     go mod tidy
 RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o docker-entrypoint .

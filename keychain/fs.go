@@ -6,12 +6,23 @@
 
 package keychain
 
-import "context"
+import (
+	"context"
+	"io/fs"
+)
 
 func (kc T) ReadFileCtx(_ context.Context, service string) ([]byte, error) {
 	return kc.ReadSecureNote(service)
 }
 
-func (kc T) WriteFileCtx(_ context.Context, service string, data []byte) error {
+func (kc T) WriteFileCtx(_ context.Context, service string, data []byte, _ fs.FileMode) error {
 	return kc.WriteSecureNote(service, data)
+}
+
+func (kc T) ReadFile(service string) ([]byte, error) {
+	return kc.ReadFileCtx(context.Background(), service)
+}
+
+func (kc T) WriteFile(service string, data []byte, _ fs.FileMode) error {
+	return kc.WriteFileCtx(context.Background(), service, data, 0600)
 }

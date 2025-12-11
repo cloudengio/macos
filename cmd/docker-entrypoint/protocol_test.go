@@ -9,8 +9,8 @@ import (
 
 func TestReadWriteKeys(t *testing.T) {
 	ks := keys.NewInMemoryKeyStore()
-	k1 := keys.NewInfo("k1", "u1", []byte("t1"), nil)
-	k2 := keys.NewInfo("k2", "u2", []byte("t2"), nil)
+	k1 := keys.NewInfo("k1", "u1", []byte("t1"))
+	k2 := keys.NewInfo("k2", "u2", []byte("t2"))
 	ks.Add(k1)
 	ks.Add(k2)
 
