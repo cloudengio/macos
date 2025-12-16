@@ -143,6 +143,16 @@ func (f WriteFlags) Config() Config {
 	return cfg
 }
 
+// DefaultConfigForReading returns a Config with default values
+// suitable for reading from the keychain.
+func DefaultConfigForReading() Config {
+	return Config{
+		Binary:  PluginBinaryDefaultName,
+		Account: os.Getenv("USER"),
+		Type:    keychain.KeychainAll,
+	}
+}
+
 // Config represents the configuration for a keychain plugin.
 type Config struct {
 	Binary        string                 `yaml:"plugin_binary"`
