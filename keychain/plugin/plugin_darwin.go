@@ -146,11 +146,9 @@ func (f WriteFlags) Config() Config {
 // DefaultConfigForReading returns a Config with default values
 // suitable for reading from the keychain.
 func DefaultConfigForReading() Config {
-	return Config{
-		Binary:  PluginBinaryDefaultName,
-		Account: os.Getenv("USER"),
-		Type:    keychain.KeychainAll,
-	}
+	cfg := KeychainFlags{}.pluginConfig()
+	cfg.Type = keychain.KeychainAll
+	return cfg
 }
 
 // Config represents the configuration for a keychain plugin.
