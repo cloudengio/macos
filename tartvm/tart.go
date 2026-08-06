@@ -49,6 +49,35 @@ type Instance struct {
 	runStderr *executil.TailWriter // GUARDED by opMutex, used to capture the stderr of the tart run command for error reporting if the command fails or the VM exits unexpectedly.
 }
 
+// Config contains configuration for tart VM pools.
+type Config struct {
+	OS               string        `yaml:"os" doc:"the operating system of the tart VM, either 'macos' or 'linux'"`
+	PollingInterval  time.Duration `yaml:"polling_interval" doc:"The interval to use for polling the state of the VM when waiting for state transitions, network availability, etc."`
+	RunTimeout       time.Duration `yaml:"run_timeout" doc:"A timeout for the VM to reach a running state after Start is called."`
+	ForceStopTimeout time.Duration `yaml:"force_stop_timeout" doc:"A timeout for forcefully stopping a VM when a run operation, or other operation, fails and the error recovery needs to stop the VM."`
+	RunOptions       []string      `yaml:"run_options" doc:"Additional options to pass to the tart run command."`
+}
+
+func (c *Config) Options() []Option {
+	runOpts := c.RunOptions
+	if len(runOpts) == 0 {
+		switch c.OS {
+		case "macos":
+			runOpts = DefaultMacOSRunOptions()
+		case "linux":
+			runOpts = DefaultLinuxRunOptions()
+		default:
+			runOpts = DefaultRunOptions()
+		}
+	}
+	return []Option{
+		WithPollingInterval(c.PollingInterval),
+		WithRunTimeout(c.RunTimeout),
+		WithForceStopTimeout(c.ForceStopTimeout),
+		WithRunOptions(runOpts...),
+	}
+}
+
 // Option represents an Option to New.
 type Option func(o *options)
 
@@ -59,6 +88,7 @@ type options struct {
 	forceStopTimeout time.Duration
 	runOptions       []string
 	logger           *slog.Logger
+	ipAtStart        bool
 }
 
 // WithPollingInterval sets the interval to use for polling the
@@ -67,6 +97,9 @@ type options struct {
 //	The default is DefaultPollingInterval.
 func WithPollingInterval(interval time.Duration) Option {
 	return func(o *options) {
+		if interval <= 0 {
+			interval = DefaultPollingInterval
+		}
 		o.pollingInterval = interval
 	}
 }
@@ -86,7 +119,9 @@ func WithRunTimeout(timeout time.Duration) Option {
 // The default is the value returned by DefaultRunOptions.
 func WithRunOptions(opts ...string) Option {
 	return func(o *options) {
-		o.runOptions = append(o.runOptions, opts...)
+		if len(opts) > 0 {
+			o.runOptions = append(o.runOptions, opts...)
+		}
 	}
 }
 
@@ -109,11 +144,19 @@ func WithLogger(logger *slog.Logger) Option {
 	}
 }
 
+// WithObtainIPAtStart sets whether to obtain the IP address of the VM at start time,
+// disable for faster execution of Start and with the IP address obtained on demand.
+func WithObtainIPAtStart(ipAtStart bool) Option {
+	return func(o *options) {
+		o.ipAtStart = ipAtStart
+	}
+}
+
 const (
 	DefaultPollingInterval  = 100 * time.Millisecond
 	DefaultOutputBufferSize = 16 * 1024 // 16KiB
 	DefaultRunTimeout       = 2 * time.Minute
-	DefaultForceStopTimeout = 2 * time.Second
+	DefaultForceStopTimeout = 10 * time.Second
 )
 
 // DefaultRunOptions are safe defaults that work with mac and linux tart VMs.
@@ -146,16 +189,19 @@ func New(ctx context.Context, source, name string, opts ...Option) *Instance {
 		options.runOptions = DefaultRunOptions()
 	}
 	if options.logger == nil {
-		options.logger = ctxlog.Logger(ctx).With("module", "tart", "source", source, "name", name)
+		options.logger = ctxlog.Logger(ctx)
 	}
-	return &Instance{
+
+	options.logger = options.logger.With("module", "tart", "source", source, "name", name)
+	inst := &Instance{
 		source:      source,
 		name:        name,
+		logger:      options.logger,
 		state:       vms.StateInitial,
 		opts:        options,
-		logger:      options.logger,
 		suspendable: slices.Contains(options.runOptions, "--suspendable"),
 	}
+	return inst
 }
 
 // ID returns the local VM's ID/name.
@@ -175,10 +221,19 @@ func (inst *Instance) isActionAllowed(action vms.Action) (vms.State, bool) {
 	return inst.state, inst.state.Allowed(action)
 }
 
-func (inst *Instance) getIP() string {
+func (inst *Instance) getIP(ctx context.Context) (string, error) {
 	inst.stateMu.Lock()
 	defer inst.stateMu.Unlock()
-	return inst.currentIP
+	if !inst.opts.ipAtStart && len(inst.currentIP) == 0 && inst.state == vms.StateRunning {
+		runCtx, cancel := context.WithTimeout(ctx, inst.opts.runTimeout)
+		defer cancel()
+		ip, err := inst.runIPWait(runCtx)
+		if err != nil || ip == "" {
+			return "", fmt.Errorf("tart %s: %w: failed to get IP address", inst.name, err)
+		}
+		inst.currentIP = strings.TrimSpace(ip)
+	}
+	return inst.currentIP, nil
 }
 
 // State returns the current state and any error from a running
@@ -299,13 +354,17 @@ func (inst *Instance) Start(ctx context.Context, stdout, stderr io.Writer) error
 	defer cancel()
 	if err := inst.waitForTartState(runCtx, "running", inst.opts.pollingInterval); err != nil {
 		return inst.runFailed(runCtx, prev, cmd,
-			fmt.Errorf("tart %s: %w: failed to reach tart 'running' state", strings.Join(args, " "), err))
+			fmt.Errorf("tart %s: %w: failed to reach tart 'running' state after timeout", strings.Join(args, " "), err))
 	}
 
-	ip, err := inst.runIPWait(runCtx)
-	if err != nil || ip == "" {
-		return inst.runFailed(runCtx, prev, cmd,
-			fmt.Errorf("tart %s: %w: failed to get IP address", strings.Join(args, " "), err))
+	var ip string
+	if inst.opts.ipAtStart {
+		var err error
+		ip, err = inst.runIPWait(runCtx)
+		if err != nil || ip == "" {
+			return inst.runFailed(runCtx, prev, cmd,
+				fmt.Errorf("tart %s: %w: failed to get IP address", strings.Join(args, " "), err))
+		}
 	}
 
 	if err := inst.waitForReadyUsingExec(runCtx); err != nil {
@@ -481,8 +540,13 @@ func (inst *Instance) Suspend(ctx context.Context) error {
 }
 
 // Properties returns VM properties. If the VM is running, it returns the IP address.
-func (inst *Instance) Properties(context.Context) (vms.Properties, error) {
-	ip := inst.getIP()
+func (inst *Instance) Properties(ctx context.Context) (vms.Properties, error) {
+	ip, err := inst.getIP(ctx)
+	if err != nil {
+		return vms.Properties{
+			CloneInfo: CloneInfo{Source: inst.source, Name: inst.name},
+		}, err
+	}
 	return vms.Properties{
 		IP:        ip,
 		CloneInfo: CloneInfo{Source: inst.source, Name: inst.name},
@@ -500,7 +564,7 @@ func (inst *Instance) Exec(ctx context.Context, stdout, stderr io.Writer, cmd st
 	c.Stdout = stdout
 	c.Stderr = stderr
 	if err := c.Run(); err != nil {
-		return fmt.Errorf("tart %s: %w", strings.Join(allArgs, " "), err)
+		return fmt.Errorf("tart exec: %w", err)
 	}
 	return nil
 }
@@ -522,12 +586,12 @@ func waitForReadyUsingExecOne(ctx context.Context, logger *slog.Logger, name str
 	cmd.Stderr = out
 	cmd.Stdin = nil // Detach stdin entirely
 	if err := cmd.Run(); err != nil {
-		logger.Info("tart exec failed", "name", name, "error", err, "output", string(out.Bytes()))
+		logger.Info("tart exec failed", "error", err, "output", string(out.Bytes()))
 		return false, fmt.Errorf("tart exec: %s\n%w", out.Bytes(), err)
 	}
 	read := strings.TrimSpace(string(out.Bytes()))
 	if read != now {
-		logger.Info("tart exec output mismatch", "name", name, "expected", now, "got", read)
+		logger.Info("tart exec output mismatch", "expected", now, "got", read)
 		return true, fmt.Errorf("tart exec: output does not contain expected string: %s != %s", read, now)
 	}
 	return true, nil
@@ -538,7 +602,7 @@ func (inst *Instance) runIPWait(ctx context.Context) (string, error) {
 	cmd := exec.CommandContext(ctx, "tart", args...)
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("tart %s: %w", strings.Join(args, " "), err)
+		return "", fmt.Errorf("tart %s: (timeout: %v): %w", strings.Join(args, " "), inst.opts.runTimeout, err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
