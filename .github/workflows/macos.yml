@@ -15,10 +15,11 @@ jobs:
       matrix:
         go-version: [ "1.26.x" ]
 
-    runs-on: macos-latest
+    # runs-on: macos-latest
+    runs-on: ["self-hosted", "macos", "arm64" ]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: cloudengio/.github/.github/actions/go@main
       - uses: cloudengio/.github/.github/actions/apple-keychain@main
         id: create-keychain
@@ -47,7 +48,9 @@ jobs:
 
       - name: install tart
         run: |
-          brew install cirruslabs/cli/tart
+          if ! command -v tart &> /dev/null; then
+            brew install cirruslabs/cli/tart
+          fi
 
       - name: run go tests
         env:
@@ -55,6 +58,12 @@ jobs:
           SKIP_DOCKER_TESTS: "skip"
         run: |
           multimod --config=.multimod.yaml test
+
+      - name: lint
+          multimod --config=.multimod.yaml lint
+
+      - name: govuln
+          multimod --config=.multimod.yml govuln
 
       - name: cleanup
         if: always()
@@ -66,10 +75,3 @@ jobs:
           security list-keychains -d user -s $SYSTEM_USER_KEYCHAIN || true
           security default-keychain -s $SYSTEM_DEFAULT_KEYCHAIN || true
           security delete-keychain "$KEYCHAIN_PATH" || true
-
-  lint:
-    uses: cloudengio/.github/.github/workflows/go-lint-multimod.yml@main
-    with:
-      runner: |
-        [ "macos-latest" ]
-      go-version: "1.26.x"
