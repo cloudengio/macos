@@ -14,7 +14,7 @@ DefaultPollingInterval = 100 * time.Millisecond
 DefaultOutputBufferSize = 16 * 1024 // 16KiB
 
 DefaultRunTimeout = 2 * time.Minute
-DefaultForceStopTimeout = 2 * time.Second
+DefaultForceStopTimeout = 10 * time.Second
 
 ```
 
@@ -53,6 +53,27 @@ type CloneInfo struct {
 
 ```go
 func (c CloneInfo) String() string
+```
+
+
+
+
+### Type Config
+```go
+type Config struct {
+	OS               string        `yaml:"os" doc:"the operating system of the tart VM, either 'macos' or 'linux'"`
+	PollingInterval  time.Duration `yaml:"polling_interval" doc:"The interval to use for polling the state of the VM when waiting for state transitions, network availability, etc."`
+	RunTimeout       time.Duration `yaml:"run_timeout" doc:"A timeout for the VM to reach a running state after Start is called."`
+	ForceStopTimeout time.Duration `yaml:"force_stop_timeout" doc:"A timeout for forcefully stopping a VM when a run operation, or other operation, fails and the error recovery needs to stop the VM."`
+	RunOptions       []string      `yaml:"run_options,flow" doc:"Additional options to pass to the tart run command."`
+}
+```
+Config contains configuration for tart VM pools.
+
+### Methods
+
+```go
+func (c *Config) Options() []Option
 ```
 
 
@@ -107,7 +128,7 @@ ID returns the local VM's ID/name.
 
 
 ```go
-func (inst *Instance) Properties(context.Context) (vms.Properties, error)
+func (inst *Instance) Properties(ctx context.Context) (vms.Properties, error)
 ```
 Properties returns VM properties. If the VM is running, it returns the IP
 address.
@@ -229,6 +250,14 @@ func WithLogger(logger *slog.Logger) Option
 ```
 WithLogger sets a logger to use for logging tart commands and state
 transitions.
+
+
+```go
+func WithObtainIPAtStart(ipAtStart bool) Option
+```
+WithObtainIPAtStart sets whether to obtain the IP address of the VM at start
+time, disable for faster execution of Start and with the IP address obtained
+on demand.
 
 
 ```go
