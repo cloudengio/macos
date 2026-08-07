@@ -55,7 +55,7 @@ type Config struct {
 	PollingInterval  time.Duration `yaml:"polling_interval" doc:"The interval to use for polling the state of the VM when waiting for state transitions, network availability, etc."`
 	RunTimeout       time.Duration `yaml:"run_timeout" doc:"A timeout for the VM to reach a running state after Start is called."`
 	ForceStopTimeout time.Duration `yaml:"force_stop_timeout" doc:"A timeout for forcefully stopping a VM when a run operation, or other operation, fails and the error recovery needs to stop the VM."`
-	RunOptions       []string      `yaml:"run_options" doc:"Additional options to pass to the tart run command."`
+	RunOptions       []string      `yaml:"run_options,flow" doc:"Additional options to pass to the tart run command."`
 }
 
 func (c *Config) Options() []Option {
