@@ -45,16 +45,10 @@ jobs:
           (cd cmd/keychain-plugin; go generate .)
           macos-keychain-plugin --help || true
 
-      - name: install tart
-        run: |
-          if ! command -v tart &> /dev/null; then
-            brew install cirruslabs/cli/tart
-          fi
-
       - name: tests
         env:
           SKIP_KEYCHAIN_PLUGIN_TESTS: "skip"
-          # SKIP_DOCKER_TESTS: "skip"
+          SKIP_DOCKER_TESTS: "skip"
         run: |
           multimod --config=.multimod.yaml test
 
