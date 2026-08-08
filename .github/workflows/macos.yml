@@ -52,6 +52,13 @@ jobs:
         run: |
           multimod --config=.multimod.yaml test
 
+      - name: Install golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        if: always() && !cancelled()
+        with:
+          install-only: true
+          version: latest
+
       - name: lint
         run: |
           multimod --config=.multimod.yaml lint
