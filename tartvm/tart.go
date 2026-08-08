@@ -221,19 +221,30 @@ func (inst *Instance) isActionAllowed(action vms.Action) (vms.State, bool) {
 	return inst.state, inst.state.Allowed(action)
 }
 
-func (inst *Instance) getIP(ctx context.Context) (string, error) {
+func (inst *Instance) needIP() (string, bool) {
 	inst.stateMu.Lock()
 	defer inst.stateMu.Unlock()
-	if !inst.opts.ipAtStart && len(inst.currentIP) == 0 && inst.state == vms.StateRunning {
+	return inst.currentIP, !inst.opts.ipAtStart && len(inst.currentIP) == 0 && inst.state == vms.StateRunning
+}
+
+func (inst *Instance) getIP(ctx context.Context) (string, error) {
+	ip, needIP := inst.needIP()
+	if needIP {
 		runCtx, cancel := context.WithTimeout(ctx, inst.opts.runTimeout)
 		defer cancel()
-		ip, err := inst.runIPWait(runCtx)
-		if err != nil || ip == "" {
+		fetched, err := inst.runIPWait(runCtx)
+		if err != nil {
 			return "", fmt.Errorf("tart %s: %w: failed to get IP address", inst.name, err)
 		}
-		inst.currentIP = strings.TrimSpace(ip)
+		if fetched == "" {
+			return "", fmt.Errorf("tart %s: got empty IP address", inst.name)
+		}
+		ip = strings.TrimSpace(fetched)
+		inst.stateMu.Lock()
+		inst.currentIP = ip
+		inst.stateMu.Unlock()
 	}
-	return inst.currentIP, nil
+	return ip, nil
 }
 
 // State returns the current state and any error from a running
@@ -564,7 +575,7 @@ func (inst *Instance) Exec(ctx context.Context, stdout, stderr io.Writer, cmd st
 	c.Stdout = stdout
 	c.Stderr = stderr
 	if err := c.Run(); err != nil {
-		return fmt.Errorf("tart exec: %w", err)
+		return fmt.Errorf("tart exec: cmd %s: %w", cmd, err)
 	}
 	return nil
 }
