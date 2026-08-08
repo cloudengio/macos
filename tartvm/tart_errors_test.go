@@ -27,8 +27,11 @@ func assertActionError(t *testing.T, err error, action, state string) {
 	}
 }
 
-// TestInvalidOpsFromInitial verifies that Start, Stop, Suspend, and Delete are
-// all rejected before any tart call is made — pure state-machine validation.
+// TestInvalidOpsFromInitial verifies that Start, Stop and Suspend are all
+// rejected before any tart call is made — pure state-machine validation.
+// Delete is deliberately absent: it is permitted from Initial so that a clone
+// which failed or was interrupted part way through can be cleaned up, and is
+// covered by TestDeleteFromInitial.
 func TestInvalidOpsFromInitial(t *testing.T) {
 	ctx := t.Context()
 	inst := tartvm.New(ctx, "dummy-source", "dummy-name")
@@ -38,7 +41,6 @@ func TestInvalidOpsFromInitial(t *testing.T) {
 
 	assertActionError(t, inst.Start(ctx, io.Discard, io.Discard), "Start", "Initial")
 	assertActionError(t, inst.Suspend(ctx), "Suspend", "Initial")
-	assertActionError(t, inst.Delete(ctx), "Delete", "Initial")
 }
 
 // TestInvalidOpsFromRunningLinux starts a Linux VM and verifies that Clone,
