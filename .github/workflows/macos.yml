@@ -65,7 +65,7 @@ jobs:
 
       - name: govuln
         run: |
-          multimod --config=.multimod.yml govuln
+          multimod --config=.multimod.yaml govuln
 
       - name: cleanup
         if: always()
