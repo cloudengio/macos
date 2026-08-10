@@ -597,13 +597,13 @@ func waitForReadyUsingExecOne(ctx context.Context, logger *slog.Logger, name str
 	cmd.Stderr = out
 	cmd.Stdin = nil // Detach stdin entirely
 	if err := cmd.Run(); err != nil {
-		logger.Info("tart exec failed", "error", err, "output", string(out.Bytes()))
-		return false, fmt.Errorf("tart exec: %s\n%w", out.Bytes(), err)
+		logger.Info("waiting for vm to be ready: tart exec failed", "name", name, "error", err, "output", string(out.Bytes()))
+		return false, fmt.Errorf("waiting for vm %s to be ready: tart exec: %s\n%w", name, out.Bytes(), err)
 	}
 	read := strings.TrimSpace(string(out.Bytes()))
 	if read != now {
-		logger.Info("tart exec output mismatch", "expected", now, "got", read)
-		return true, fmt.Errorf("tart exec: output does not contain expected string: %s != %s", read, now)
+		logger.Info("waiting for vm to be ready: tart exec output mismatch", "name", name, "expected", now, "got", read)
+		return true, fmt.Errorf("waiting for vm %s to be ready: tart exec: output does not contain expected string: %s != %s", name, read, now)
 	}
 	return true, nil
 }
