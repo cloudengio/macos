@@ -20,8 +20,8 @@ cloudeng.io/os v0.0.0-20260807191443-11b7f4ecaaa0 h1:jpdrNvLmpapwNtrsQ+wmkJxltnW
 cloudeng.io/os v0.0.0-20260807191443-11b7f4ecaaa0/go.mod h1:KywG7sgIIrXujykkH/b3vWROeOJBHMwZlhpp4670Hgo=
 cloudeng.io/security v0.0.0-20260807191443-11b7f4ecaaa0 h1:uTSoyq5VBRWKfIZ8KHHdKs6g5R4W/PWOp/4IzfLhVKw=
 cloudeng.io/security v0.0.0-20260807191443-11b7f4ecaaa0/go.mod h1:Hnm6qv7XMgk+ZHdpD4VjlQrYczyTZwhyYvRhzlL68Zk=
-cloudeng.io/sync v0.0.11 h1:w0KEssgwRzTwZ0ZVNaNmBExkvy+GBHK6rdokFSZE7H0=
-cloudeng.io/sync v0.0.11/go.mod h1:F9NpbM4iI6Rg74moXYpFdAU+ljdB9RKLWNuYvF0cFJE=
+cloudeng.io/sync v0.0.12-0.20260804222138-e9281ed260ba h1:2+U9tNRu/+O1rHgv2mxRTU80lgUCJSxDFDswbKumBx8=
+cloudeng.io/sync v0.0.12-0.20260804222138-e9281ed260ba/go.mod h1:35kcugrX/RVGQjSfyLMciOCloX34nFfnkQsdks75Ao0=
 cloudeng.io/sys v0.0.0-20260807191443-11b7f4ecaaa0 h1:ktIKF8j1fgkjwJb1npJZ1B7jHN717DUnt3WL6vBntR8=
 cloudeng.io/sys v0.0.0-20260807191443-11b7f4ecaaa0/go.mod h1:743L2810r+Sw0FLR4r5G8a3UsEWniPRFYovEvMNpRBE=
 cloudeng.io/text v0.0.16-0.20260624171915-da98fe9dec2b h1:otn38p2Jnt/wSY3b4frIaXVFP9suUCTVIXd2gK1JZJY=
@@ -48,8 +48,8 @@ github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.35 h1:WK6CjihTuLisCjSKKb
 github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.35/go.mod h1:KYleN57luLoe97R7vTnx8PMcVrr9gAcRECtOjl91DNg=
 github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.36 h1:jbGY4CXLzZElOXgGsexlC3Hi+3YM0rSmk4opFXKqg/k=
 github.com/aws/aws-sdk-go-v2/internal/v4a v1.4.36/go.mod h1:uBu/9aKsS/UQGc72RAt3y54kjgYQxmhut8ZD2dXCDNE=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.320.0 h1:/tI2/yVgVh/IxJJVvb4Csfec8FsHmi49By8iLHmTEhc=
-github.com/aws/aws-sdk-go-v2/service/ec2 v1.320.0/go.mod h1:Gi5mEHpABbT34fHwafgyxqrIte9oHUEHscusPBYEdHA=
+github.com/aws/aws-sdk-go-v2/service/ec2 v1.321.0 h1:XxzwotCCRk2Un1OWcJujk4vAC2OZkGh5l816W1w+Fd8=
+github.com/aws/aws-sdk-go-v2/service/ec2 v1.321.0/go.mod h1:Gi5mEHpABbT34fHwafgyxqrIte9oHUEHscusPBYEdHA=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.15 h1:JJLBQxwY+AFwuPAi5ivGc1ChnTdUt4cXMv7e76m2c/Y=
 github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.15/go.mod h1:lQknBIe78MVL0cQOQDlag8KGflMbMEVFx9mB6O8ENvk=
 github.com/aws/aws-sdk-go-v2/service/internal/checksum v1.9.28 h1:Q1TF1J9jVD+vFo0LzNnmNdQ9EAt52TS+MQlq9Ir+Yxo=
