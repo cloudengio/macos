@@ -31,12 +31,12 @@ type tartConstructor struct {
 	runOpts []string
 }
 
-func (c *tartConstructor) New(ctx context.Context) vms.Instance {
+func (c *tartConstructor) New(ctx context.Context) (vms.Instance, error) {
 	n := c.counter.Add(1)
 	name := fmt.Sprintf("testpool-%d-%d", time.Now().Unix()%100000, n)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{})).With("test", name, "source", c.source)
 	opts := []tartvm.Option{tartvm.WithRunOptions(c.runOpts...), tartvm.WithLogger(logger)}
-	return tartvm.New(ctx, c.source, name, opts...)
+	return tartvm.New(ctx, c.source, name, opts...), nil
 }
 
 // List, Get and Delete satisfy vmspool.Provider. The pool/instance test harness

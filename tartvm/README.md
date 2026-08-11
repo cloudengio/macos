@@ -81,11 +81,12 @@ func (c *Config) Options() []Option
 
 ### Type Constructor
 ```go
-type Constructor = func(ctx context.Context) vms.Instance
+type Constructor = func(ctx context.Context) (vms.Instance, error)
 ```
 Constructor creates a new, uninitialized tart VM instance. Each call must
 return a distinct vms.Instance (typically via New with a unique name).
-ctx governs any work done to construct the instance.
+ctx governs any work done to construct the instance. It returns an error if
+the instance could not be created.
 
 
 ### Type Instance
@@ -339,7 +340,7 @@ match the configured prefix.
 
 
 ```go
-func (p *Provider) New(ctx context.Context) vms.Instance
+func (p *Provider) New(ctx context.Context) (vms.Instance, error)
 ```
 New implements vmspool.Provider.
 

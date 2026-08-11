@@ -14,15 +14,19 @@ import (
 
 func TestNewProviderWiring(t *testing.T) {
 	var calls int
-	ctor := func(context.Context) vms.Instance {
+	ctor := func(context.Context) (vms.Instance, error) {
 		calls++
-		return nil
+		return nil, nil
 	}
 	p := NewProvider(ctor, WithNamePrefix("pfx-"), WithPoolName("mypool"))
 
 	// New delegates to the supplied constructor.
-	p.New(context.Background())
-	p.New(context.Background())
+	if _, err := p.New(context.Background()); err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if _, err := p.New(context.Background()); err != nil {
+		t.Fatalf("New: %v", err)
+	}
 	if calls != 2 {
 		t.Errorf("constructor called %d times, want 2", calls)
 	}

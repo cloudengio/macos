@@ -21,8 +21,9 @@ import (
 
 // Constructor creates a new, uninitialized tart VM instance. Each call must
 // return a distinct vms.Instance (typically via New with a unique name). ctx
-// governs any work done to construct the instance.
-type Constructor = func(ctx context.Context) vms.Instance
+// governs any work done to construct the instance. It returns an error if the
+// instance could not be created.
+type Constructor = func(ctx context.Context) (vms.Instance, error)
 
 // Provider is a vmspool.Provider backed by tart. It delegates VM construction to
 // a caller-supplied Constructor and implements List, Get and Delete directly via
@@ -62,7 +63,12 @@ func NewProvider(constructor Constructor, opts ...ProviderOption) *Provider {
 }
 
 // New implements vmspool.Provider.
-func (p *Provider) New(ctx context.Context) vms.Instance { return p.constructor(ctx) }
+func (p *Provider) New(ctx context.Context) (vms.Instance, error) {
+	if p.constructor == nil {
+		return nil, fmt.Errorf("no constructor was provided in call to tartvm.NewProvider")
+	}
+	return p.constructor(ctx)
+}
 
 // tartLocalSource is the value that "tart list" reports for locally created VMs,
 // as opposed to OCI images that have been pulled.
@@ -137,7 +143,8 @@ func (p *Provider) Delete(ctx context.Context, stopTimeout time.Duration) ([]str
 		if vm.Running {
 			args := []string{"stop", vm.Name}
 			if stopTimeout > 0 {
-				args = append(args, "--timeout", strconv.Itoa(int(stopTimeout.Seconds())))
+				secs := int((stopTimeout + time.Second - 1) / time.Second)
+				args = append(args, "--timeout", strconv.Itoa(secs))
 			}
 			if err := runTart(ctx, args...); err != nil {
 				// Report the failure but still attempt the delete below; the VM
@@ -165,7 +172,7 @@ func runTartOut(ctx context.Context, args ...string) ([]byte, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("tart %v: %s: %w", strings.Join(args, " "), strings.TrimSpace(stderr.String()), err)
+		return nil, fmt.Errorf("tart %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(stderr.String()), err)
 	}
 	return stdout.Bytes(), nil
 }
