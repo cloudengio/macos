@@ -133,13 +133,13 @@ func (p *Provider) Get(ctx context.Context, vmName string) (vmspool.VMDetail, er
 // Delete implements vmspool.Provider, stopping (if running) and deleting every
 // VM the Provider manages. Deletion continues past individual failures.
 func (p *Provider) Delete(ctx context.Context, stopTimeout time.Duration) ([]string, error) {
-	vms, err := p.List(ctx)
+	found, err := p.List(ctx)
 	if err != nil {
 		return nil, err
 	}
 	var errs errors.M
-	deleted := make([]string, 0, len(vms))
-	for _, vm := range vms {
+	deleted := make([]string, 0, len(found))
+	for _, vm := range found {
 		if vm.Running {
 			args := []string{"stop", vm.Name}
 			if stopTimeout > 0 {
@@ -172,7 +172,7 @@ func runTartOut(ctx context.Context, args ...string) ([]byte, error) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("tart %s: %s: %w", strings.Join(args, " "), strings.TrimSpace(stderr.String()), err)
+		return nil, convertError(args, stderr.String(), err)
 	}
 	return stdout.Bytes(), nil
 }
