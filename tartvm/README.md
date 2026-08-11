@@ -79,6 +79,15 @@ func (c *Config) Options() []Option
 
 
 
+### Type Constructor
+```go
+type Constructor = func(ctx context.Context) vms.Instance
+```
+Constructor creates a new, uninitialized tart VM instance. Each call must
+return a distinct vms.Instance (typically via New with a unique name).
+ctx governs any work done to construct the instance.
+
+
 ### Type Instance
 ```go
 type Instance struct {
@@ -281,6 +290,83 @@ func WithRunTimeout(timeout time.Duration) Option
 ```
 WithRunTimeout sets a timeout for the VM to reach a running state after
 Start is called. The default is DefaultRunTimeout.
+
+
+
+
+### Type Provider
+```go
+type Provider struct {
+	// contains filtered or unexported fields
+}
+```
+Provider is a vmspool.Provider backed by tart. It delegates VM construction
+to a caller-supplied Constructor and implements List, Get and Delete
+directly via the tart CLI, so using tart with a vmspool.Pool only requires
+supplying the construction function.
+
+### Functions
+
+```go
+func NewProvider(constructor Constructor, opts ...ProviderOption) *Provider
+```
+NewProvider returns a Provider that constructs VMs with constructor and
+implements the remaining vmspool.Provider methods via the tart CLI.
+
+
+
+### Methods
+
+```go
+func (p *Provider) Delete(ctx context.Context, stopTimeout time.Duration) ([]string, error)
+```
+Delete implements vmspool.Provider, stopping (if running) and deleting every
+VM the Provider manages. Deletion continues past individual failures.
+
+
+```go
+func (p *Provider) Get(ctx context.Context, vmName string) (vmspool.VMDetail, error)
+```
+Get implements vmspool.Provider, returning the resources allocated to a
+single VM via "tart get".
+
+
+```go
+func (p *Provider) List(ctx context.Context) ([]vmspool.VMInfo, error)
+```
+List implements vmspool.Provider, returning the local tart VMs whose names
+match the configured prefix.
+
+
+```go
+func (p *Provider) New(ctx context.Context) vms.Instance
+```
+New implements vmspool.Provider.
+
+
+
+
+### Type ProviderOption
+```go
+type ProviderOption func(*Provider)
+```
+ProviderOption configures a Provider.
+
+### Functions
+
+```go
+func WithNamePrefix(prefix string) ProviderOption
+```
+WithNamePrefix scopes List and Delete to VMs whose names start with prefix.
+Without it a Provider manages every local tart VM, which is rarely desirable
+when more than one pool shares the host.
+
+
+```go
+func WithPoolName(name string) ProviderOption
+```
+WithPoolName sets the pool name reported in VMInfo.Pool for the Provider's
+VMs.
 
 
 

@@ -31,12 +31,24 @@ type tartConstructor struct {
 	runOpts []string
 }
 
-func (c *tartConstructor) New() vms.Instance {
+func (c *tartConstructor) New(ctx context.Context) vms.Instance {
 	n := c.counter.Add(1)
 	name := fmt.Sprintf("testpool-%d-%d", time.Now().Unix()%100000, n)
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{})).With("test", name, "source", c.source)
 	opts := []tartvm.Option{tartvm.WithRunOptions(c.runOpts...), tartvm.WithLogger(logger)}
-	return tartvm.New(context.Background(), c.source, name, opts...)
+	return tartvm.New(ctx, c.source, name, opts...)
+}
+
+// List, Get and Delete satisfy vmspool.Provider. The pool/instance test harness
+// does not exercise them, so they are minimal stubs.
+func (c *tartConstructor) List(context.Context) ([]vmspool.VMInfo, error) { return nil, nil }
+
+func (c *tartConstructor) Get(_ context.Context, name string) (vmspool.VMDetail, error) {
+	return vmspool.VMDetail{VMInfo: vmspool.VMInfo{Name: name}}, nil
+}
+
+func (c *tartConstructor) Delete(context.Context, time.Duration) ([]string, error) {
+	return nil, nil
 }
 
 func newlinuxConstructor() *tartConstructor {
