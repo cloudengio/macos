@@ -17,7 +17,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"cloudeng.io/cmdutil/flags"
 	"cloudeng.io/logging/ctxlog"
@@ -120,25 +119,23 @@ func LocatePluginBinary(keychainBundle, pluginBundle, pluginBinary string) (stri
 }
 
 func locateInBundle(bundlePath, binary string) string {
+	// Confine the walk to the bundle directory: os.Root rejects any path that
+	// leaves it, including via symlinks inside the bundle. This matters because
+	// the binary located here is subsequently executed.
+	root, err := os.OpenRoot(bundlePath)
+	if err != nil {
+		return ""
+	}
+	defer root.Close()
+
 	location := ""
-	inBundle := false
-	_ = filepath.WalkDir(bundlePath, func(path string, d fs.DirEntry, err error) error {
+	_ = fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
-		if !inBundle && d.IsDir() && path == bundlePath {
-			inBundle = true
-			return nil
-		}
-		if !inBundle {
-			return fs.SkipDir
-		}
-		if d.IsDir() && !strings.EqualFold(d.Name(), "macos") {
-			return nil
-		}
 		if d.Name() == binary {
 			if info, err := d.Info(); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0100 != 0 {
-				location = path
+				location = filepath.Join(bundlePath, path)
 				return fs.SkipAll
 			}
 		}
@@ -159,6 +156,13 @@ func LocateKeychainBinaryInAppBundle(appBundle, binary string) (string, string, 
 			return appBundle, location, nil
 		}
 		return "", "", fmt.Errorf("app bundle %q: executable %q not found: %w", appBundle, binary, exec.ErrNotFound)
+	}
+
+	// A relative bundle is searched for in /Applications and each $PATH entry,
+	// so it must be a bare name; a path such as "../.." would escape those roots
+	// since filepath.Join cleans the result.
+	if appBundle != filepath.Base(appBundle) || appBundle == "." || appBundle == ".." {
+		return "", "", fmt.Errorf("app bundle %q must be a bare bundle name, not a path", appBundle)
 	}
 
 	// dedup $PATH while preserving order, and append /Applications to the search path.
