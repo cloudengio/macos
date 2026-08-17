@@ -9,3 +9,4 @@ go generate' in the go/cmd/`keychain-plugin` directory taking care to set up
 the appropriate Apple signing identity and provisioning profile environment
 variables required by gobundle-app.yml.
 
+

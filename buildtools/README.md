@@ -719,8 +719,8 @@ type NotaryConfig struct {
 	// with `xcrun notarytool store-credentials <name>`.
 	KeychainProfile string `yaml:"keychain_profile"`
 	// AppleID, TeamID and Password provide credentials directly when a keychain
-	// profile is not used. Password may be an app-specific password or a
-	// `@keychain:<item>` reference understood by notarytool.
+	// profile is not used. To avoid exposing credentials in the process table,
+	// Password should use `@keychain:<item>` or `@env:<VAR_NAME>` reference syntax.
 	AppleID  string `yaml:"apple_id"`
 	TeamID   string `yaml:"team_id"`
 	Password string `yaml:"password"`

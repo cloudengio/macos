@@ -108,3 +108,24 @@ func TestStepExecution(t *testing.T) {
 		t.Fatal("step execution returned unexpected executable")
 	}
 }
+
+func TestCommandRunnerStdoutStderr(t *testing.T) {
+	ctx := context.Background()
+	var stdoutBuf, stderrBuf strings.Builder
+	runner := buildtools.NewCommandRunner(
+		buildtools.WithStdout(&stdoutBuf),
+		buildtools.WithStderr(&stderrBuf),
+	)
+
+	res, err := runner.Run(ctx, "echo", "hello world")
+	if err != nil {
+		t.Fatalf("echo failed: %v", err)
+	}
+
+	if got, want := strings.TrimSpace(res.Output()), "hello world"; got != want {
+		t.Errorf("res.Output() = %q, want %q", got, want)
+	}
+	if got, want := strings.TrimSpace(stdoutBuf.String()), "hello world"; got != want {
+		t.Errorf("stdoutBuf = %q, want %q", got, want)
+	}
+}

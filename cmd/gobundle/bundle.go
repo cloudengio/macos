@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"cloudeng.io/macos/buildtools"
 )
@@ -93,19 +94,29 @@ func (b bundle) createAndSign(ctx context.Context, binary string, notarize bool)
 		if b.cfg.Identity == "" {
 			return fmt.Errorf("notarize is set but the bundle is not signed: set an 'identity' in the config")
 		}
+		if strings.HasPrefix(b.cfg.Identity, "Apple Development:") {
+			return fmt.Errorf("notarize requires a 'Developer ID Application' identity, but an Apple Development identity (%q) was configured", b.cfg.Identity)
+		}
 		if !b.cfg.Notary.Configured() {
 			return fmt.Errorf("notarize is set but no notarization credentials are configured: set a 'notary' section in the config")
 		}
+		printf("Submitting %s to Apple notary service (waiting for response)...\n", filepath.Base(b.ap.Path))
 		b.stepRunner.AddSteps(b.ap.Notarize(b.cfg.Notary)...)
 	}
 
-	results := b.stepRunner.Run(ctx, buildtools.NewCommandRunner())
+	var runnerOpts []buildtools.CommandRunnerOption
+	if verbose {
+		runnerOpts = append(runnerOpts, buildtools.WithStdout(os.Stdout), buildtools.WithStderr(os.Stderr))
+	}
+	results := b.stepRunner.Run(ctx, buildtools.NewCommandRunner(runnerOpts...))
 	for _, r := range results {
 		if r.Error() != nil {
 			fmt.Printf("%s (%s)\noutput: %s\n", r.CommandLine(), r.Error(), r.Output())
 			continue
 		}
-		printf("%s\n%s", r.CommandLine(), r.Output())
+		if !verbose {
+			printf("%s\n%s", r.CommandLine(), r.Output())
+		}
 	}
 	return results.Error()
 }

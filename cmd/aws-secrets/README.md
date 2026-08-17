@@ -8,3 +8,4 @@ Usage of `aws-secrets`
      read - read a secret from aws secretsmanager
     write - write a secret to aws secretsmanager
 
+

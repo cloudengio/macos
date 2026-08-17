@@ -6,34 +6,61 @@ import cloudeng.io/macos/keychain/plugin
 
 
 ## Constants
-### DefaultPluginBinary, DefaultPluginAppBundlePath
+### DefaultPluginBinary, DefaultKeyChainAppBundle, DefaultKeyChainPluginBundle
 ```go
 // DefaultPluginBinary is the default name of the plugin binary.
-DefaultPluginBinary = "macos-keychain-plugin"
-// DefaultPluginAppBundlePath is the default app bundle path.
-DefaultPluginAppBundlePath = "/Applications/macos-keychain-plugin.app"
+DefaultPluginBinary = "cloudeng-keychain-plugin"
+// DefaultKeyChainAppBundle is the default app bundle path for the keychain
+// command that has the keychain plugin nested inside it.
+DefaultKeyChainAppBundle = "cloudeng-keychain.app"
+// DefaultKeyChainPluginBundle is the default app bundle path for the keychain
+// plugin binary. This is used when the plugin is not nested inside the host
+// app bundle.
+DefaultKeyChainPluginBundle = "cloudeng-keychain-plugin.app"
 
 ```
 
 
 
 ## Functions
+### Func BundledPluginApp
+```go
+func BundledPluginApp() (string, bool)
+```
+BundledPluginApp returns the path to the plugin app bundle nested inside the
+app bundle that contains the currently running executable, and whether it
+was found. This lets a host app (e.g. the keychain client) ship the plugin
+as a nested bundle at <host>.app/Contents/Library/macos-keychain-plugin.app
+and use it with no configuration.
+
+The running executable is resolved through symlinks first: it may be invoked
+via a symlink (gobundle creates one, and PATH entries are often symlinks),
+and only the resolved path reveals the real location inside the bundle.
+The executable is expected at <host>.app/Contents/MacOS/<name>, so the
+plugin bundle is a sibling under Contents/Library.
+
+### Func LocateKeychainBinaryInAppBundle
+```go
+func LocateKeychainBinaryInAppBundle(appBundle, binary string) (string, string, error)
+```
+LocateKeychainBinaryInAppBundle finds an app bundle by name that contains
+the specified binary. If appBundle is an absolute path, it is checked
+directly. Otherwise, /Applications and each directory in $PATH are searched.
+The bundle must contain an executable file named binary somewhere within
+its directory tree. If found, the path to the bundle and the absolute path
+to the binary are returned. If not found, an error is returned containing
+exec.ErrNotFound.
+
 ### Func LocatePluginBinary
 ```go
-func LocatePluginBinary(appBundle, binary string) (string, error)
+func LocatePluginBinary(keychainBundle, pluginBundle, pluginBinary string) (string, error)
 ```
-LocatePluginBinary attempts to locate the plugin binary by first checking
-the specified app bundle and then looking in the PATH for binary.
-
-### Func LookupPluginBinary
-```go
-func LookupPluginBinary(appBundle, binary string) (string, error)
-```
-LookupPluginBinary attempts to locate the plugin binary by first checking
-the specified app bundle and then looking in the PATH for binary. If the
-app bundle is not specified, it defaults to DefaultPluginAppBundlePath.
-If the binary is not specified, it defaults to DefaultPluginBinary. If the
-binary cannot be found in either location, an error is returned.
+LocatePluginBinary attempts to locate the plugin binary by first looking
+for thje keychain and plugin bundles that contain the plugin binary
+and then looking in the PATH for the binary itself. keychainBundle,
+pluginBundle and pluginBinary default to DefaultKeyChainAppBundle,
+DefaultKeyChainPluginBundle and DefaultPluginBinary respectively if not
+specified.
 
 ### Func NewRequest
 ```go
@@ -51,37 +78,18 @@ contents to the keychain with the specified keyname and configuration.
 
 
 ## Types
-### Type Accessibility
-```go
-type Accessibility keychain.Accessibility
-```
-Accessibility represents the accessibility level for a keychain item.
-It aliases keychain.Accessibility in order to add flag.Value support.
-
-### Methods
-
-```go
-func (a *Accessibility) Set(v string) error
-```
-
-
-```go
-func (a *Accessibility) String() string
-```
-
-
-
-
 ### Type Config
 ```go
 type Config struct {
-	Binary        string                 `yaml:"plugin_binary" doc:"plugin binary to use, if not specified it defaults to DefaultPluginBinary, the binary must be present in the PATH or the specified app bundle or be an absolute path" json:"-"`
-	UseApp        string                 `yaml:"app_bundle" doc:"app bundle that contains the plugin binary, if specified it takes precedence over Binary for locating the plugin binary, it defaults to DefaultPluginAppBundlePath" json:"-"`
-	Type          keychain.Type          `yaml:"keychain_type" doc:"the type of keychain to use, currently supported types are: file, data-protection and icloud" json:"type"`
-	WriteType     keychain.Type          `yaml:"keychain_write_type" doc:"the type of keychain to use for writing, currently supported types are: file, data-protection and icloud, this is needed because the 'all' type is not valid for writing" json:"write_type"`
-	Account       string                 `yaml:"account" doc:"account that the keychain item belongs to" json:"account"`
-	UpdateInPlace bool                   `yaml:"update_in_place" doc:"set to true to update existing item in place" json:"update_in_place,omitempty"`
-	Accessibility keychain.Accessibility `yaml:"accessibility,omitempty" doc:"optional accessibility level for the keychain item" json:"accessibility,omitempty"`
+	Binary               string                 `yaml:"plugin_binary" doc:"plugin binary to use, if not specified it defaults to DefaultPluginBinary, the binary must be present in the PATH or the specified app bundle or be an absolute path" json:"-"`
+	KeychainBundle       string                 `yaml:"keychain_app_bundle" doc:"app bundle that contains the plugin binary, if specified it takes precedence over Binary for locating the plugin binary, it defaults to DefaultPluginAppBundlePath" json:"-"`
+	KeychainPluginBundle string                 `yaml:"keychain_plugin_bundle" doc:"app bundle that contains the plugin binary, if specified it takes precedence over Binary for locating the plugin binary, it defaults to DefaultKeyChainPluginBundlePath" json:"-"`
+	Type                 keychain.Type          `yaml:"keychain_type" doc:"the type of keychain to use, currently supported types are: file, data-protection and icloud" json:"type"`
+	WriteType            keychain.Type          `yaml:"keychain_write_type" doc:"the type of keychain to use for writing, currently supported types are: file, data-protection and icloud, this is needed because the 'all' type is not valid for writing" json:"write_type"`
+	Account              string                 `yaml:"account" doc:"account that the keychain item belongs to" json:"account"`
+	UpdateInPlace        bool                   `yaml:"update_in_place" doc:"set to true to update existing item in place" json:"update_in_place,omitempty"`
+	Accessibility        keychain.Accessibility `yaml:"accessibility,omitempty" doc:"optional accessibility level for the keychain item" json:"accessibility,omitempty"`
+	OnlyUsePlugin        bool                   `yaml:"only_use_plugin" doc:"require the keychain plugin; if false and no plugin binary is found the keychain is accessed directly, in-process" json:"-"`
 }
 ```
 Config represents the configuration for a keychain plugin. It is also used
@@ -107,20 +115,43 @@ reading from the keychain.
 ### Methods
 
 ```go
-func (pc Config) FS() *plugins.FS
+func (pc Config) FS(writable bool) (FS, error)
 ```
-FS returns a plugins.FS based on the Config. If the config does not specify
-a binary DefaultPluginBinaryPath will be used.
+FS returns the FS used to read and write keychain items. It locates the
+plugin binary (see LookupPluginBinary); if found, access goes through the
+out-of-process plugin. If the plugin binary is not found and OnlyUsePlugin
+is false, it falls back to accessing the keychain directly, in-process — the
+same access the plugin itself performs. "Not found" covers both a plugin
+that is not on the PATH (exec.ErrNotFound) and an explicitly specified path
+that does not exist (fs.ErrNotExist). If OnlyUsePlugin is true, a missing
+plugin is an error, as is any other lookup failure.
 
 
+
+
+### Type FS
+```go
+type FS interface {
+	ReadFile(name string) ([]byte, error)
+	ReadFileCtx(ctx context.Context, name string) ([]byte, error)
+	WriteFile(name string, data []byte, perm fs.FileMode) error
+	WriteFileCtx(ctx context.Context, name string, data []byte, mode fs.FileMode) error
+}
+```
+FS reads and writes keychain items. It is implemented both by the
+out-of-process plugin (plugins.FS) and by direct, in-process keychain access
+(keychain.T). It is a superset of file.ReadFileFS, so it can be passed to
+APIs such as keys.ReadYAML.
 
 
 ### Type KeychainFlags
 ```go
 type KeychainFlags struct {
-	Binary  string `subcmd:"keychain-plugin,,path to the plugin binary"`
-	UseApp  string `subcmd:"keychain-use-app,,'if empty, defaults to /Applications/macos-keychain-plugin.app, but can be set to any app bundle that contains the plugin binary (macos-keychain-plugin)'"`
-	Account string `subcmd:"keychain-account,,account that the keychain item belongs to"`
+	Binary               string `subcmd:"keychain-plugin,,direct path to the plugin binary"`
+	KeychainBundle       string `subcmd:"keychain-app-bundle,,'bundle that contains the plugin binary, use directly if the bundle is an absolute path, otherwise look for in /Applications and $%PATH'"`
+	KeychainPluginBundle string `subcmd:"keychain-plugin-bundle,,'bundle that contains the plugin binary, use directly if the bundle is an absolute path, otherwise look for in /Applications and $%PATH'"`
+	Account              string `subcmd:"keychain-account,,account that the keychain item belongs to"`
+	OnlyUsePlugin        bool   `subcmd:"keychain-only-use-plugin,false,'require the keychain plugin; if false and no plugin binary is found the keychain is accessed directly, in-process'"`
 }
 ```
 KeychainFlags are commonly required flags for working with the MacOS
@@ -149,7 +180,7 @@ a default logger that discards all logs will be used.
 type ReadFlags struct {
 	KeychainFlags
 	// Note that the default value is 'all' for reading but 'icloud' for writing.
-	Type ReadType `subcmd:"keychain-type,all,'the type of keychain plugin to use: file, data-protection, icloud or all'"`
+	Type flags.Enum[keychain.Type] `subcmd:"keychain-type,all,'the type of keychain plugin to use'"`
 }
 ```
 ReadFlags are used for reading from the keychain plugin.
@@ -158,27 +189,6 @@ ReadFlags are used for reading from the keychain plugin.
 
 ```go
 func (f ReadFlags) Config() (Config, error)
-```
-
-
-
-
-### Type ReadType
-```go
-type ReadType keychain.Type
-```
-ReadType represents the type of keychain plugin to use for reading.
-It aliases keychain.Type in order to add flag.Value support.
-
-### Methods
-
-```go
-func (t *ReadType) Set(v string) error
-```
-
-
-```go
-func (t *ReadType) String() string
 ```
 
 
@@ -234,9 +244,10 @@ SendResponse sends the provided response to the plugin caller.
 type WriteFlags struct {
 	KeychainFlags
 	// Note that the default value is 'all' for reading but 'icloud' for writing.
-	Type          WriteType     `subcmd:"keychain-type,icloud,'the type of keychain plugin to use: file, data-protection or icloud'"`
-	UpdateInPlace bool          `subcmd:"keychain-update-in-place,false,set to true to update existing note in place"`
-	Accessibility Accessibility `subcmd:"keychain-accessibility,,optional accessibility level for the keychain item"`
+	// 'all' is not accepted here: it names a search across all keychains.
+	Type          flags.Enum[WriteType]              `subcmd:"keychain-type,icloud,'the type of keychain plugin to use: data-protection-local, file or icloud'"`
+	UpdateInPlace bool                               `subcmd:"keychain-update-in-place,false,set to true to update existing note in place"`
+	Accessibility flags.Enum[keychain.Accessibility] `subcmd:"keychain-accessibility,when-unlocked,optional accessibility level for the keychain item"`
 }
 ```
 WriteFlags are used for writing to the keychain plugin.
@@ -252,21 +263,16 @@ func (f WriteFlags) Config() (Config, error)
 
 ### Type WriteType
 ```go
-type WriteType keychain.Type
+type WriteType int
 ```
-WriteType represents the type of keychain plugin to use for writing.
-It aliases keychain.Type in order to add flag.Value support.
+WriteType is like Type, except that it does not allow the value 'all'.
 
 ### Methods
 
 ```go
-func (t *WriteType) Set(v string) error
+func (WriteType) EnumValues() map[string]WriteType
 ```
-
-
-```go
-func (t *WriteType) String() string
-```
+EnumValues satisfies flags.EnumType[WriteType].
 
 
 

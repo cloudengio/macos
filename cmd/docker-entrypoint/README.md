@@ -17,3 +17,4 @@ Usage of `docker-entrypoint`
                 entrypoint - entrypoint command to run inside a container
     create-seccomp-profile - create a seccomp profile that allows access to the linux kernel key ring
 
+

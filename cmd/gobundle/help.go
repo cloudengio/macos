@@ -58,10 +58,16 @@ The config file format is as follows:
                       still embed the profile, so entitlements work locally.
                       Requires an identity and notary credentials.
     notary:         - notarization credentials: keychain_profile (a notarytool
+<<<<<<< HEAD
+                      stored profile), or apple_id/team_id/password. Passwords
+                      should use @keychain:<item> or @env:<VAR> to avoid exposing
+                      secrets in process tables.
+=======
                       stored profile), or apple_id/team_id/password.
+>>>>>>> main
 
 For example:
-    identity: "Apple Development: You (Your Team ID)"
+    identity: "Developer ID Application: You (Your Team ID)"
     entitlements:
         com.apple.security.app-sandbox: true
     profile: $HOME/Downloads/example_app.provisionprofile

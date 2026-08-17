@@ -32,12 +32,24 @@ Usage: `gobundle` --help|run|build|install|... [options]
                           it can include environment variables
         entitlements:   - a dictionary of entitlements to embed in the app
         info.plist:     - a dictionary of fields that correspond to info.Plist entries.
+        notarize:       - if true, notarize and staple the signed bundle so it opens
+                          on other Macs. Only applied by 'install' (notarization is
+                          slow and only matters for distribution); 'build' and 'run'
+                          still embed the profile, so entitlements work locally.
+                          Requires an identity and notary credentials.
+        notary:         - notarization credentials: keychain_profile (a notarytool
+                          stored profile), or apple_id/team_id/password. Passwords
+                          should use @keychain:<item> or @env:<VAR> to avoid exposing
+                          secrets in process tables.
 
     For example:
-        identity: "Apple Development: You (Your Team ID)"
+        identity: "Developer ID Application: You (Your Team ID)"
         entitlements:
             com.apple.security.app-sandbox: true
         profile: $HOME/Downloads/example_app.provisionprofile
+        notarize: true
+        notary:
+            keychain_profile: my-notary-profile
         info.plist:
             CFBundleIdentifier: <your-team-id>com.you.example
 
