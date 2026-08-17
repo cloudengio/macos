@@ -8,6 +8,7 @@ package keychain_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"cloudeng.io/file"
@@ -20,41 +21,44 @@ func TestType(t *testing.T) {
 		want keychain.Type
 	}{
 		{"file", keychain.KeychainFileBased},
-		{"default", keychain.KeychainFileBased},
 		{"data-protection-local", keychain.KeychainDataProtectionLocal},
-		{"data-protection", keychain.KeychainDataProtectionLocal},
-		{"local", keychain.KeychainDataProtectionLocal},
 		{"icloud", keychain.KeychainICloud},
 		{"all", keychain.KeychainAll},
-		{"", keychain.KeychainAll},
 	} {
 		got, err := keychain.ParseType(tc.in)
 		if err != nil {
 			t.Errorf("%v: failed to parse %v: %v", i, tc.in, err)
+			continue
 		}
 		if got != tc.want {
 			t.Errorf("%v: got %v, want %v", i, got, tc.want)
 		}
-		// The string representation may not be the same as the input.
-		// For example, "default" becomes "file".
-		var wantStr string
-		switch tc.want {
-		case keychain.KeychainFileBased:
-			wantStr = "file"
-		case keychain.KeychainDataProtectionLocal:
-			wantStr = "data-protection-local"
-		case keychain.KeychainICloud:
-			wantStr = "icloud"
-		case keychain.KeychainAll:
-			wantStr = "all"
-		}
-		if got.String() != wantStr {
-			t.Errorf("%v: got %v, want %v", i, got.String(), wantStr)
+		// Each type now has exactly one string representation, so String is
+		// the inverse of ParseType.
+		if got, want := got.String(), tc.in; got != want {
+			t.Errorf("%v: got %v, want %v", i, got, want)
 		}
 	}
-	_, err := keychain.ParseType("invalid")
-	if err == nil {
-		t.Errorf("expected error for invalid type")
+
+	// The aliases accepted by the previous hand written parser ("default",
+	// "data-protection", "local" and "") are no longer valid.
+	for _, in := range []string{"invalid", "default", "data-protection", "local", ""} {
+		_, err := keychain.ParseType(in)
+		if err == nil {
+			t.Errorf("ParseType(%q): expected an error, got nil", in)
+			continue
+		}
+		if !strings.Contains(err.Error(), keychain.Type(0).ValidValues()) {
+			t.Errorf("ParseType(%q): error %q does not list the valid values", in, err)
+		}
+	}
+}
+
+func TestTypeValidValues(t *testing.T) {
+	got := keychain.Type(0).ValidValues()
+	want := "all, data-protection-local, file, icloud"
+	if got != want {
+		t.Errorf("ValidValues() = %q, want %q", got, want)
 	}
 }
 
@@ -75,17 +79,35 @@ func TestAccessibility(t *testing.T) {
 		got, err := keychain.ParseAccessibility(tc.in)
 		if err != nil {
 			t.Errorf("%v: failed to parse %v: %v", i, tc.in, err)
+			continue
 		}
 		if got != tc.want {
 			t.Errorf("%v: got %v, want %v", i, got, tc.want)
 		}
-		if got.String() != tc.in {
-			t.Errorf("%v: got %v, want %v", i, got.String(), tc.in)
+		if got, want := got.String(), tc.in; got != want {
+			t.Errorf("%v: got %v, want %v", i, got, want)
 		}
 	}
-	_, err := keychain.ParseAccessibility("invalid")
-	if err == nil {
-		t.Errorf("expected error for invalid accessibility")
+
+	for _, in := range []string{"invalid", ""} {
+		_, err := keychain.ParseAccessibility(in)
+		if err == nil {
+			t.Errorf("ParseAccessibility(%q): expected an error, got nil", in)
+			continue
+		}
+		if !strings.Contains(err.Error(), keychain.Accessibility(0).ValidValues()) {
+			t.Errorf("ParseAccessibility(%q): error %q does not list the valid values", in, err)
+		}
+	}
+}
+
+func TestAccessibilityValidValues(t *testing.T) {
+	got := keychain.Accessibility(0).ValidValues()
+	want := "after-first-unlock, after-first-unlock-this-device-only, always, " +
+		"always-this-device-only, default, when-passcode-set-this-device-only, " +
+		"when-unlocked, when-unlocked-this-device-only"
+	if got != want {
+		t.Errorf("ValidValues() = %q, want %q", got, want)
 	}
 }
 

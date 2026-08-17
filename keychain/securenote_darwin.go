@@ -20,6 +20,7 @@ import (
 	"io/fs"
 	"log/slog"
 
+	"cloudeng.io/cmdutil/flags"
 	"github.com/cloudengio/go-keychain"
 )
 
@@ -107,82 +108,66 @@ const (
 	AccessibleAccessibleAlwaysThisDeviceOnly = Accessibility(keychain.AccessibleAccessibleAlwaysThisDeviceOnly)
 )
 
-func (a Accessibility) String() string {
-	switch a {
-	case AccessibleDefault:
-		return "default"
-	case AccessibleWhenUnlocked:
-		return "when-unlocked"
-	case AccessibleAfterFirstUnlock:
-		return "after-first-unlock"
-	case AccessibleAlways:
-		return "always"
-	case AccessibleWhenPasscodeSetThisDeviceOnly:
-		return "when-passcode-set-this-device-only"
-	case AccessibleWhenUnlockedThisDeviceOnly:
-		return "when-unlocked-this-device-only"
-	case AccessibleAfterFirstUnlockThisDeviceOnly:
-		return "after-first-unlock-this-device-only"
-	case AccessibleAccessibleAlwaysThisDeviceOnly:
-		return "always-this-device-only"
-	default:
-		return "unknown"
+// EnumValues satisfies flags.EnumType[Accessibility].
+func (Accessibility) EnumValues() map[string]Accessibility {
+	return map[string]Accessibility{
+		"default":                             AccessibleDefault,
+		"when-unlocked":                       AccessibleWhenUnlocked,
+		"after-first-unlock":                  AccessibleAfterFirstUnlock,
+		"always":                              AccessibleAlways,
+		"when-passcode-set-this-device-only":  AccessibleWhenPasscodeSetThisDeviceOnly,
+		"when-unlocked-this-device-only":      AccessibleWhenUnlockedThisDeviceOnly,
+		"after-first-unlock-this-device-only": AccessibleAfterFirstUnlockThisDeviceOnly,
+		"always-this-device-only":             AccessibleAccessibleAlwaysThisDeviceOnly,
 	}
+}
+
+func (a Accessibility) String() string {
+	return flags.Enum[Accessibility]{Value: a}.String()
 }
 
 // ParseAccessibility parses a string into an Accessibility.
 func ParseAccessibility(s string) (Accessibility, error) {
-	switch s {
-	case "default":
-		return AccessibleDefault, nil
-	case "when-unlocked":
-		return AccessibleWhenUnlocked, nil
-	case "after-first-unlock":
-		return AccessibleAfterFirstUnlock, nil
-	case "always":
-		return AccessibleAlways, nil
-	case "when-passcode-set-this-device-only":
-		return AccessibleWhenPasscodeSetThisDeviceOnly, nil
-	case "when-unlocked-this-device-only":
-		return AccessibleWhenUnlockedThisDeviceOnly, nil
-	case "after-first-unlock-this-device-only":
-		return AccessibleAfterFirstUnlockThisDeviceOnly, nil
-	case "always-this-device-only":
-		return AccessibleAccessibleAlwaysThisDeviceOnly, nil
-	default:
-		return 0, fmt.Errorf("invalid accessibility: %s", s)
+	var e flags.Enum[Accessibility]
+	if err := e.Set(s); err != nil {
+		return 0, err
+	}
+	return e.Value, nil
+}
+
+// ValidValues returns all supported accessibility values as a sorted,
+// comma-separated string, suitable for use in error messages.
+func (Accessibility) ValidValues() string {
+	return flags.Enum[Accessibility]{}.AllowedValues()
+}
+
+// EnumValues satisfies flags.EnumType[Type].
+func (Type) EnumValues() map[string]Type {
+	return map[string]Type{
+		"file":                  KeychainFileBased,
+		"data-protection-local": KeychainDataProtectionLocal,
+		"icloud":                KeychainICloud,
+		"all":                   KeychainAll,
 	}
 }
 
 func (t Type) String() string {
-	switch t {
-	case KeychainFileBased:
-		return "file"
-	case KeychainDataProtectionLocal:
-		return "data-protection-local"
-	case KeychainICloud:
-		return "icloud"
-	case KeychainAll:
-		return "all"
-	default:
-		return "unknown"
-	}
+	return flags.Enum[Type]{Value: t}.String()
 }
 
 // ParseType parses a string into a KeychainType.
 func ParseType(s string) (Type, error) {
-	switch s {
-	case "file", "default":
-		return KeychainFileBased, nil
-	case "data-protection-local", "data-protection", "local":
-		return KeychainDataProtectionLocal, nil
-	case "icloud":
-		return KeychainICloud, nil
-	case "all", "":
-		return KeychainAll, nil
-	default:
-		return 0, fmt.Errorf("invalid keychain type: %s", s)
+	var e flags.Enum[Type]
+	if err := e.Set(s); err != nil {
+		return 0, err
 	}
+	return e.Value, nil
+}
+
+// ValidValues returns all supported keychain type values as a sorted,
+// comma-separated string, suitable for use in error messages.
+func (Type) ValidValues() string {
+	return flags.Enum[Type]{}.AllowedValues()
 }
 
 // T represents a keychain that can be used to read and write secure notes.

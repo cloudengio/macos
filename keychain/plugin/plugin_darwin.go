@@ -17,7 +17,9 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
+	"cloudeng.io/cmdutil/flags"
 	"cloudeng.io/logging/ctxlog"
 	"cloudeng.io/macos/keychain"
 	"cloudeng.io/os/executil"
@@ -35,167 +37,195 @@ func NewWriteRequest(keyname string, contents []byte, cfg Config) (plugins.Reque
 	return plugins.NewWriteRequest(keyname, contents, cfg)
 }
 
-// WriteType represents the type of keychain plugin to use for writing.
-// It aliases keychain.Type in order to add flag.Value support.
-type WriteType keychain.Type
-
-func (t *WriteType) Set(v string) error {
-	kt, err := keychain.ParseType(v)
-	if err != nil {
-		return err
-	}
-	if kt == keychain.KeychainAll {
-		return errors.New("type 'all' is not valid for writing")
-	}
-	*t = WriteType(kt)
-	return nil
-}
-
-func (t *WriteType) String() string {
-	return keychain.Type(*t).String()
-}
-
-// ReadType represents the type of keychain plugin to use for reading.
-// It aliases keychain.Type in order to add flag.Value support.
-type ReadType keychain.Type
-
-func (t *ReadType) Set(v string) error {
-	kt, err := keychain.ParseType(v)
-	if err != nil {
-		return err
-	}
-	*t = ReadType(kt)
-	return nil
-}
-
-func (t *ReadType) String() string {
-	return keychain.Type(*t).String()
-}
-
-// Accessibility represents the accessibility level for a keychain item.
-// It aliases keychain.Accessibility in order to add flag.Value support.
-type Accessibility keychain.Accessibility
-
-func (a *Accessibility) Set(v string) error {
-	ka, err := keychain.ParseAccessibility(v)
-	if err != nil {
-		return err
-	}
-	*a = Accessibility(ka)
-	return nil
-}
-
-func (a *Accessibility) String() string {
-	return keychain.Accessibility(*a).String()
-}
-
 // KeychainFlags are commonly required flags for working with
 // the MacOS keychain plugin.
 type KeychainFlags struct {
-	Binary  string `subcmd:"keychain-plugin,,path to the plugin binary"`
-	UseApp  string `subcmd:"keychain-use-app,,'if empty, defaults to /Applications/macos-keychain-plugin.app, but can be set to any app bundle that contains the plugin binary (macos-keychain-plugin)'"`
-	Account string `subcmd:"keychain-account,,account that the keychain item belongs to"`
+	Binary               string `subcmd:"keychain-plugin,,direct path to the plugin binary"`
+	KeychainBundle       string `subcmd:"keychain-app-bundle,,'bundle that contains the plugin binary, use directly if the bundle is an absolute path, otherwise look for in /Applications and $%PATH'"`
+	KeychainPluginBundle string `subcmd:"keychain-plugin-bundle,,'bundle that contains the plugin binary, use directly if the bundle is an absolute path, otherwise look for in /Applications and $%PATH'"`
+	Account              string `subcmd:"keychain-account,,account that the keychain item belongs to"`
+	OnlyUsePlugin        bool   `subcmd:"keychain-only-use-plugin,false,'require the keychain plugin; if false and no plugin binary is found the keychain is accessed directly, in-process'"`
 }
 
 // ReadFlags are used for reading from the keychain plugin.
 type ReadFlags struct {
 	KeychainFlags
 	// Note that the default value is 'all' for reading but 'icloud' for writing.
-	Type ReadType `subcmd:"keychain-type,all,'the type of keychain plugin to use: file, data-protection, icloud or all'"`
+	Type flags.Enum[keychain.Type] `subcmd:"keychain-type,all,'the type of keychain plugin to use: file, data-protection, icloud or all'"`
 }
 
 // WriteFlags are used for writing to the keychain plugin.
 type WriteFlags struct {
 	KeychainFlags
 	// Note that the default value is 'all' for reading but 'icloud' for writing.
-	Type          WriteType     `subcmd:"keychain-type,icloud,'the type of keychain plugin to use: file, data-protection or icloud'"`
-	UpdateInPlace bool          `subcmd:"keychain-update-in-place,false,set to true to update existing note in place"`
-	Accessibility Accessibility `subcmd:"keychain-accessibility,,optional accessibility level for the keychain item"`
+	Type          flags.Enum[keychain.Type]          `subcmd:"keychain-type,icloud,'the type of keychain plugin to use: file, data-protection or icloud'"`
+	UpdateInPlace bool                               `subcmd:"keychain-update-in-place,false,set to true to update existing note in place"`
+	Accessibility flags.Enum[keychain.Accessibility] `subcmd:"keychain-accessibility,when-unlocked,optional accessibility level for the keychain item"`
 }
 
 const (
 	// DefaultPluginBinary is the default name of the plugin binary.
-	DefaultPluginBinary = "macos-keychain-plugin"
+	DefaultPluginBinary = "cloudeng-keychain-plugin"
 
-	// DefaultPluginAppBundlePath is the default app bundle path.
-	DefaultPluginAppBundlePath = "/Applications/macos-keychain-plugin.app"
+	// DefaultKeyChainAppBundle is the default app bundle path for the keychain
+	// command that has the keychain plugin nested inside it.
+	DefaultKeyChainAppBundle = "cloudeng-keychain.app"
+
+	// DefaultKeyChainPluginBundle is the default app bundle path for the keychain
+	// plugin binary. This is used when the plugin is not nested inside the host
+	// app bundle.
+	DefaultKeyChainPluginBundle = "cloudeng-keychain-plugin.app"
 )
 
-// LocatePluginBinary attempts to locate the plugin binary by first checking the
-// specified app bundle and then looking in the PATH for binary.
-func LocatePluginBinary(appBundle, binary string) (string, error) {
-	appPath := filepath.Join(appBundle, "Contents", "MacOS", "macos-keychain-plugin")
-	fi, err := os.Stat(appPath)
-	if err == nil && fi.Mode().IsRegular() && fi.Mode().Perm()&0100 != 0 {
-		return appPath, nil
+// LocatePluginBinary attempts to locate the plugin binary by first looking
+// for thje keychain and plugin bundles that contain the plugin binary and
+// then looking in the PATH for the binary itself. keychainBundle, pluginBundle
+// and pluginBinary default to DefaultKeyChainAppBundle, DefaultKeyChainPluginBundle
+// and DefaultPluginBinary respectively if not specified.
+func LocatePluginBinary(keychainBundle, pluginBundle, pluginBinary string) (string, error) {
+	if pluginBinary == "" {
+		pluginBinary = DefaultPluginBinary
 	}
-	path, err := exec.LookPath(binary)
+	if keychainBundle == "" {
+		keychainBundle = DefaultKeyChainAppBundle
+	}
+	if pluginBundle == "" {
+		pluginBundle = DefaultKeyChainPluginBundle
+	}
+	for _, bundleCandidate := range []string{keychainBundle, pluginBundle} {
+		_, binary, err := LocateKeychainBinaryInAppBundle(bundleCandidate, pluginBinary)
+		if err == nil {
+			return binary, nil
+		}
+	}
+	path, err := exec.LookPath(pluginBinary)
 	if err != nil {
-		return "", fmt.Errorf("failed to find plugin binary in PATH: %v", err)
+		// Wrap with %w so callers can test for exec.ErrNotFound.
+		return "", fmt.Errorf("failed to find plugin binary %q in PATH: %w", pluginBinary, err)
 	}
 	return path, nil
 }
 
-// LookupPluginBinary attempts to locate the plugin binary by first checking the
-// specified app bundle and then looking in the PATH for binary. If the
-// app bundle is not specified, it defaults to DefaultPluginAppBundlePath. If
-// the binary is not specified, it defaults to DefaultPluginBinary. If the
-// binary cannot be found in either location, an error is returned.
-func LookupPluginBinary(appBundle, binary string) (string, error) {
-	if binary == "" {
-		binary = executil.ExecName(DefaultPluginBinary)
-	}
-	if appBundle == "" {
-		appBundle = DefaultPluginAppBundlePath
-	}
-	candidate := filepath.Join(appBundle, "Contents", "MacOS", binary)
-	fi, err := os.Stat(candidate)
-	if err == nil && fi.Mode().IsRegular() && fi.Mode().Perm()&0100 != 0 {
-		return candidate, nil
-	}
-	path, err := exec.LookPath(binary)
-	if err != nil {
-		return "", fmt.Errorf("failed to find plugin binary in PATH: %v", err)
-	}
-	return path, nil
+func locateInBundle(bundlePath, binary string) string {
+	location := ""
+	inBundle := false
+	_ = filepath.WalkDir(bundlePath, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !inBundle && d.IsDir() && path == bundlePath {
+			inBundle = true
+			return nil
+		}
+		if !inBundle {
+			return fs.SkipDir
+		}
+		if d.IsDir() && !strings.EqualFold(d.Name(), "macos") {
+			return nil
+		}
+		if d.Name() == binary {
+			if info, err := d.Info(); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0100 != 0 {
+				location = path
+				return fs.SkipAll
+			}
+		}
+		return nil
+	})
+	return location
 }
 
-// Config returns a Config based on the KeychainFlags.
-// It provides a default value for the plugin binary if one is not specified
-// in the flags. It also provides a default account of os.Getenv("USER") if
-func (f KeychainFlags) pluginConfig() (Config, error) {
-	// no account is specified.
-	binary, err := LookupPluginBinary(f.UseApp, f.Binary)
-	if err != nil {
-		return Config{}, err
+// LocateKeychainBinaryInAppBundle finds an app bundle by name that contains the specified
+// binary. If appBundle is an absolute path, it is checked directly.
+// Otherwise, /Applications and each directory in $PATH are searched. The
+// bundle must contain an executable file named binary somewhere within its
+// directory tree. If found, the path to the bundle and the absolute path to the
+// binary are returned. If not found, an error is returned containing exec.ErrNotFound.
+func LocateKeychainBinaryInAppBundle(appBundle, binary string) (string, string, error) {
+	if filepath.IsAbs(appBundle) {
+		if location := locateInBundle(appBundle, binary); location != "" {
+			return appBundle, location, nil
+		}
+		return "", "", fmt.Errorf("app bundle %q: executable %q not found: %w", appBundle, binary, exec.ErrNotFound)
 	}
+
+	// dedup $PATH while preserving order, and append /Applications to the search path.
+	searchPath := []string{}
+	all := filepath.SplitList(os.Getenv("PATH"))
+	seen := make(map[string]struct{}, len(all))
+	for _, dir := range all {
+		if _, ok := seen[dir]; !ok {
+			seen[dir] = struct{}{}
+			searchPath = append(searchPath, dir)
+		}
+	}
+	searchPath = append(searchPath, filepath.Join("/", "Applications"))
+
+	for _, dir := range searchPath {
+		candidate := filepath.Join(dir, appBundle)
+		if location := locateInBundle(candidate, binary); location != "" {
+			return candidate, location, nil
+		}
+	}
+
+	return "", "", fmt.Errorf("app bundle %q not found in /Applications or PATH: %w", appBundle, exec.ErrNotFound)
+}
+
+// BundledPluginApp returns the path to the plugin app bundle nested inside the
+// app bundle that contains the currently running executable, and whether it was
+// found. This lets a host app (e.g. the keychain client) ship the plugin as a
+// nested bundle at <host>.app/Contents/Library/macos-keychain-plugin.app and use
+// it with no configuration.
+//
+// The running executable is resolved through symlinks first: it may be invoked
+// via a symlink (gobundle creates one, and PATH entries are often symlinks), and
+// only the resolved path reveals the real location inside the bundle. The
+// executable is expected at <host>.app/Contents/MacOS/<name>, so the plugin
+// bundle is a sibling under Contents/Library.
+func BundledPluginApp() (string, bool) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", false
+	}
+	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = resolved
+	}
+	contents := filepath.Dir(filepath.Dir(exe)) // .../Contents/MacOS/<exe> -> .../Contents
+	app := filepath.Join(contents, "Library", executil.ExecName(DefaultPluginBinary)+".app")
+	bin := filepath.Join(app, "Contents", "MacOS", executil.ExecName(DefaultPluginBinary))
+	if fi, err := os.Stat(bin); err == nil && fi.Mode().IsRegular() && fi.Mode().Perm()&0100 != 0 {
+		return app, true
+	}
+	return "", false
+}
+
+// pluginConfig returns a Config based on the KeychainFlags. The account defaults
+// to os.Getenv("USER") if not specified. Locating the plugin binary is deferred
+// to Config.FS.
+func (f KeychainFlags) pluginConfig() Config {
 	account := f.Account
 	if account == "" {
 		account = os.Getenv("USER")
 	}
 	return Config{
-		Binary:  binary,
-		Account: account,
-	}, nil
+		Binary:               f.Binary,
+		KeychainBundle:       f.KeychainBundle,
+		KeychainPluginBundle: f.KeychainPluginBundle,
+		OnlyUsePlugin:        f.OnlyUsePlugin,
+		Account:              account,
+	}
 }
 
 func (f ReadFlags) Config() (Config, error) {
-	c, err := f.pluginConfig()
-	if err != nil {
-		return Config{}, err
-	}
-	c.Type = keychain.Type(f.Type)
+	c := f.pluginConfig()
+	c.Type = f.Type.Value
 	return c, nil
 }
 
 func (f WriteFlags) Config() (Config, error) {
-	cfg, err := f.pluginConfig()
-	if err != nil {
-		return Config{}, err
-	}
-	cfg.Type = keychain.Type(f.Type)
+	cfg := f.pluginConfig()
+	cfg.Type = f.Type.Value
 	cfg.UpdateInPlace = f.UpdateInPlace
-	cfg.Accessibility = keychain.Accessibility(f.Accessibility)
+	cfg.Accessibility = f.Accessibility.Value
 	cfg.WriteType = cfg.Type
 	return cfg, nil
 }
@@ -203,7 +233,7 @@ func (f WriteFlags) Config() (Config, error) {
 // DefaultConfigForReading returns a Config with default values
 // suitable for reading from the keychain.
 func DefaultConfigForReading() Config {
-	cfg, _ := KeychainFlags{}.pluginConfig()
+	cfg := KeychainFlags{}.pluginConfig()
 	cfg.Type = keychain.KeychainAll
 	cfg.WriteType = keychain.KeychainAll
 	return cfg
@@ -212,7 +242,7 @@ func DefaultConfigForReading() Config {
 // DefaultConfigForWriting returns a Config with default values
 // suitable for both reading and writing to the keychain.
 func DefaultConfigForReadWrite() Config {
-	cfg, _ := KeychainFlags{}.pluginConfig()
+	cfg := KeychainFlags{}.pluginConfig()
 	cfg.Type = keychain.KeychainAll
 	cfg.UpdateInPlace = true
 	cfg.WriteType = keychain.KeychainICloud
@@ -223,20 +253,55 @@ func DefaultConfigForReadWrite() Config {
 // Config represents the configuration for a keychain plugin. It is also
 // used as the PluginSpecific field in plugin requests and responses.
 type Config struct {
-	Binary        string                 `yaml:"plugin_binary" doc:"plugin binary to use, if not specified it defaults to DefaultPluginBinary, the binary must be present in the PATH or the specified app bundle or be an absolute path" json:"-"`
-	UseApp        string                 `yaml:"app_bundle" doc:"app bundle that contains the plugin binary, if specified it takes precedence over Binary for locating the plugin binary, it defaults to DefaultPluginAppBundlePath" json:"-"`
-	Type          keychain.Type          `yaml:"keychain_type" doc:"the type of keychain to use, currently supported types are: file, data-protection and icloud" json:"type"`
-	WriteType     keychain.Type          `yaml:"keychain_write_type" doc:"the type of keychain to use for writing, currently supported types are: file, data-protection and icloud, this is needed because the 'all' type is not valid for writing" json:"write_type"`
-	Account       string                 `yaml:"account" doc:"account that the keychain item belongs to" json:"account"`
-	UpdateInPlace bool                   `yaml:"update_in_place" doc:"set to true to update existing item in place" json:"update_in_place,omitempty"`
-	Accessibility keychain.Accessibility `yaml:"accessibility,omitempty" doc:"optional accessibility level for the keychain item" json:"accessibility,omitempty"`
+	Binary               string                 `yaml:"plugin_binary" doc:"plugin binary to use, if not specified it defaults to DefaultPluginBinary, the binary must be present in the PATH or the specified app bundle or be an absolute path" json:"-"`
+	KeychainBundle       string                 `yaml:"keychain_app_bundle" doc:"app bundle that contains the plugin binary, if specified it takes precedence over Binary for locating the plugin binary, it defaults to DefaultPluginAppBundlePath" json:"-"`
+	KeychainPluginBundle string                 `yaml:"keychain_plugin_bundle" doc:"app bundle that contains the plugin binary, if specified it takes precedence over Binary for locating the plugin binary, it defaults to DefaultKeyChainPluginBundlePath" json:"-"`
+	Type                 keychain.Type          `yaml:"keychain_type" doc:"the type of keychain to use, currently supported types are: file, data-protection and icloud" json:"type"`
+	WriteType            keychain.Type          `yaml:"keychain_write_type" doc:"the type of keychain to use for writing, currently supported types are: file, data-protection and icloud, this is needed because the 'all' type is not valid for writing" json:"write_type"`
+	Account              string                 `yaml:"account" doc:"account that the keychain item belongs to" json:"account"`
+	UpdateInPlace        bool                   `yaml:"update_in_place" doc:"set to true to update existing item in place" json:"update_in_place,omitempty"`
+	Accessibility        keychain.Accessibility `yaml:"accessibility,omitempty" doc:"optional accessibility level for the keychain item" json:"accessibility,omitempty"`
+	OnlyUsePlugin        bool                   `yaml:"only_use_plugin" doc:"require the keychain plugin; if false and no plugin binary is found the keychain is accessed directly, in-process" json:"-"`
 }
 
-// FS returns a plugins.FS based on the Config. If the config does
-// not specify a binary DefaultPluginBinaryPath will be used.
-func (pc Config) FS() *plugins.FS {
-	binary, _ := LookupPluginBinary(pc.UseApp, pc.Binary)
-	return plugins.NewFS(binary, pc)
+// FS reads and writes keychain items. It is implemented both by the
+// out-of-process plugin (plugins.FS) and by direct, in-process keychain access
+// (keychain.T). It is a superset of file.ReadFileFS, so it can be passed to APIs
+// such as keys.ReadYAML.
+type FS interface {
+	ReadFile(name string) ([]byte, error)
+	ReadFileCtx(ctx context.Context, name string) ([]byte, error)
+	WriteFile(name string, data []byte, perm fs.FileMode) error
+	WriteFileCtx(ctx context.Context, name string, data []byte, mode fs.FileMode) error
+}
+
+// FS returns the FS used to read and write keychain items. It locates the plugin
+// binary (see LookupPluginBinary); if found, access goes through the
+// out-of-process plugin. If the plugin binary is not found and OnlyUsePlugin is
+// false, it falls back to accessing the keychain directly, in-process — the same
+// access the plugin itself performs. "Not found" covers both a plugin that is
+// not on the PATH (exec.ErrNotFound) and an explicitly specified path that does
+// not exist (fs.ErrNotExist). If OnlyUsePlugin is true, a missing plugin is an
+// error, as is any other lookup failure.
+func (pc Config) FS(writable bool) (FS, error) {
+	binary, err := LocatePluginBinary(pc.KeychainBundle, pc.KeychainPluginBundle, pc.Binary)
+	if err != nil {
+		notFound := errors.Is(err, exec.ErrNotFound) || errors.Is(err, fs.ErrNotExist)
+		if pc.OnlyUsePlugin || !notFound {
+			return nil, err
+		}
+		return pc.directFS(), nil
+	}
+	return plugins.NewFS(binary, writable, pc), nil
+}
+
+// directFS returns an FS that accesses the keychain directly, in-process,
+// exactly as the plugin server does when handling a request.
+func (pc Config) directFS() FS {
+	return keychain.New(pc.Type, pc.Account,
+		keychain.WithUpdateInPlace(pc.UpdateInPlace),
+		keychain.WithAccessibility(pc.Accessibility),
+		keychain.WithWriteType(pc.WriteType))
 }
 
 // Server provides a plugin for handling plugin requests to access

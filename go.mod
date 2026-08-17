@@ -5,13 +5,13 @@ go 1.26.4
 require (
 	cloudeng.io/aws v0.0.0-20260811191230-bf36fce425cf
 	cloudeng.io/cicd v0.0.0-20260527194618-4cb6d4558850
-	cloudeng.io/cmdutil v0.0.0-20260811191230-bf36fce425cf
+	cloudeng.io/cmdutil v0.0.0-20260816210930-dbebf0fb0b3e
 	cloudeng.io/errors v0.0.14-0.20260312171538-61fcde6ce278
-	cloudeng.io/file v0.0.0-20260811191230-bf36fce425cf
+	cloudeng.io/file v0.0.0-20260816192340-d05f07f415c6
 	cloudeng.io/linux v0.0.0-20251206055912-df09039c8e99
-	cloudeng.io/logging v0.0.0-20260811191230-bf36fce425cf
-	cloudeng.io/os v0.0.0-20260811191230-bf36fce425cf
-	cloudeng.io/security v0.0.0-20260811191230-bf36fce425cf
+	cloudeng.io/logging v0.0.0-20260816210930-dbebf0fb0b3e
+	cloudeng.io/os v0.0.0-20260816210930-dbebf0fb0b3e
+	cloudeng.io/security v0.0.0-20260816210930-dbebf0fb0b3e
 	cloudeng.io/text v0.0.16-0.20260624171915-da98fe9dec2b
 	cloudeng.io/vms v0.0.0-20260811191230-bf36fce425cf
 	github.com/aws/aws-sdk-go-v2 v1.43.5
