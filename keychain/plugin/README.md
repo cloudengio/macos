@@ -25,7 +25,7 @@ DefaultKeyChainPluginBundle = "cloudeng-keychain-plugin.app"
 ## Functions
 ### Func BundledPluginApp
 ```go
-func BundledPluginApp() (string, bool)
+func BundledPluginApp(pluginBinary string) (string, bool)
 ```
 BundledPluginApp returns the path to the plugin app bundle nested inside the
 app bundle that contains the currently running executable, and whether it
@@ -245,7 +245,7 @@ type WriteFlags struct {
 	KeychainFlags
 	// Note that the default value is 'all' for reading but 'icloud' for writing.
 	// 'all' is not accepted here: it names a search across all keychains.
-	Type          flags.Enum[WriteType]              `subcmd:"keychain-type,icloud,'the type of keychain plugin to use: data-protection-local, file or icloud'"`
+	Type          flags.Enum[keychain.WriteType]     `subcmd:"keychain-type,icloud,'the type of keychain plugin to use: data-protection-local, file or icloud'"`
 	UpdateInPlace bool                               `subcmd:"keychain-update-in-place,false,set to true to update existing note in place"`
 	Accessibility flags.Enum[keychain.Accessibility] `subcmd:"keychain-accessibility,when-unlocked,optional accessibility level for the keychain item"`
 }
@@ -257,22 +257,6 @@ WriteFlags are used for writing to the keychain plugin.
 ```go
 func (f WriteFlags) Config() (Config, error)
 ```
-
-
-
-
-### Type WriteType
-```go
-type WriteType int
-```
-WriteType is like Type, except that it does not allow the value 'all'.
-
-### Methods
-
-```go
-func (WriteType) EnumValues() map[string]WriteType
-```
-EnumValues satisfies flags.EnumType[WriteType].
 
 
 

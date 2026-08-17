@@ -2,9 +2,9 @@ name: go-macos
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 permissions:
   contents: read
@@ -13,9 +13,9 @@ jobs:
   test-lint:
     strategy:
       matrix:
-        go-version: [ "1.26.x" ]
+        go-version: ["1.26.x"]
 
-    runs-on: [ "self-hosted", "macos", "arm64" ]
+    runs-on: ["self-hosted", "macos", "arm64"]
 
     steps:
       - uses: actions/checkout@v7
@@ -42,8 +42,9 @@ jobs:
           # though we can't actually test it here since it requires
           # access to a keychain which we don't have in the runner.
           go install cloudeng.io/macos/cmd/gobundle@latest
-          (cd cmd/keychain-plugin; go generate .)
-          macos-keychain-plugin --help || true
+          (cd cmd/cloudeng-keychain/cloudeng-keychain-plugin; cat gobundle-app.yml | sed 's/notarize: true/notarize: false/' > tmp.yml && mv tmp.yml gobundle-app.yml)
+          (cd cmd/cloudeng-keychain/cloudeng-keychain-plugin; go generate .)
+          cloudeng-keychain-plugin --help || true
 
       - name: tests
         env:

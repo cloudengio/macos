@@ -143,6 +143,21 @@ func TestFSPluginFallback(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("non-executable-binary", func(t *testing.T) {
+		tmpFile := filepath.Join(t.TempDir(), "not-executable")
+		if err := os.WriteFile(tmpFile, []byte("#!/bin/sh\necho hi"), 0600); err != nil {
+			t.Fatalf("writing temp file: %v", err)
+		}
+		cfg := plugin.Config{
+			Binary:        tmpFile,
+			Type:          keychain.KeychainAll,
+			OnlyUsePlugin: false,
+		}
+		if _, err := cfg.FS(false); err == nil {
+			t.Fatalf("expected error for non-executable binary, got nil")
+		}
+	})
 }
 
 func TestPluginReadRequest(t *testing.T) {
