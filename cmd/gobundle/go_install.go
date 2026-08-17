@@ -28,7 +28,7 @@ func handleGoInstall(ctx context.Context, merged []byte, args []string) error {
 		return fmt.Errorf("error processing config for go install: %v", err)
 	}
 	b := newBundle(cfg)
-	if err := b.createAndSign(ctx, binary); err != nil {
+	if err := b.createAndSign(ctx, binary, true); err != nil {
 		return err
 	}
 	if err := os.Remove(binary); err != nil { //nolint:gosec // G703 overly restrictive for this use case.

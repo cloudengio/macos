@@ -43,7 +43,7 @@ func handleGoRunExec(ctx context.Context, merged []byte, binary string) error {
 	}
 	defer os.RemoveAll(tmpDir)
 	b := newBundle(cfg)
-	if err := b.createAndSign(ctx, binary); err != nil {
+	if err := b.createAndSign(ctx, binary, false); err != nil {
 		return fmt.Errorf("error creating and signing bundle: %v", err)
 	}
 	return runCommand(ctx, b.ap.ExecutablePath(), os.Args[3:])

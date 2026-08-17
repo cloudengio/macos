@@ -28,6 +28,10 @@ type config struct {
 	Info                     buildtools.InfoPlist `yaml:"info.plist"`
 	ProvisioningProfile      string               `yaml:"profile"`
 	Icon                     string               `yaml:"icon"`
+	// Notarize requests notarization of the signed bundle. It requires a signing
+	// identity and Notary credentials.
+	Notarize bool                    `yaml:"notarize"`
+	Notary   buildtools.NotaryConfig `yaml:"notary"`
 }
 
 func readconfig(file string) (map[string]any, error) {

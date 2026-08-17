@@ -130,6 +130,17 @@ for an explanation of provisioning profiles.
 
 
 ```go
+func (b AppBundle) Notarize(cfg NotaryConfig) []Step
+```
+Notarize returns the steps that submit the bundle to Apple's notarization
+service and staple the resulting ticket into it. The bundle must already be
+signed with a Developer ID identity using the hardened runtime and a secure
+timestamp (Sign does this by default). The bundle is zipped with ditto for
+submission (notarytool does not accept a bare .app); the archive is removed
+once submission completes.
+
+
+```go
 func (b AppBundle) Resources(elem ...string) string
 ```
 Resources returns the path to the specified element within the app bundle's
@@ -158,6 +169,13 @@ func (b AppBundle) SignExecutable(signer Signer) Step
 ```
 SignExecutable returns the step required to sign the executable within the
 app bundle.
+
+
+```go
+func (b AppBundle) Staple() Step
+```
+Staple returns a Step that staples a notarization ticket into the bundle so
+that Gatekeeper can validate it offline.
 
 
 ```go
@@ -690,6 +708,37 @@ browser.
 func (nm *NativeMessagingConfig) ValidateChrome() error
 ```
 ValidateChrome validates the native messaging configuration for Chrome.
+
+
+
+
+### Type NotaryConfig
+```go
+type NotaryConfig struct {
+	// KeychainProfile is the name of a notarytool credentials profile created
+	// with `xcrun notarytool store-credentials <name>`.
+	KeychainProfile string `yaml:"keychain_profile"`
+	// AppleID, TeamID and Password provide credentials directly when a keychain
+	// profile is not used. Password may be an app-specific password or a
+	// `@keychain:<item>` reference understood by notarytool.
+	AppleID  string `yaml:"apple_id"`
+	TeamID   string `yaml:"team_id"`
+	Password string `yaml:"password"`
+	// Arguments, if set, replaces the default authentication arguments entirely.
+	Arguments []string `yaml:"arguments"`
+}
+```
+NotaryConfig holds the credentials used to submit a bundle to Apple's
+notarization service via `xcrun notarytool`. Prefer KeychainProfile so that
+credentials are not embedded in configuration files.
+
+### Methods
+
+```go
+func (n NotaryConfig) Configured() bool
+```
+Configured reports whether any notarization credentials have been supplied,
+i.e. whether Notarize can run.
 
 
 

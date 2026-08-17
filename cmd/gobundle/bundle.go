@@ -56,7 +56,12 @@ func (b bundle) handleIcons() (func(), error) {
 	}, nil
 }
 
-func (b bundle) createAndSign(ctx context.Context, binary string) error {
+// createAndSign builds and signs the bundle. notarize requests notarization
+// (only honored when the config also sets notarize: true); it is passed true
+// only for `install`, since notarization is slow and only matters for bundles
+// distributed to other Macs. Local `build`/`run` still embed the provisioning
+// profile, so entitlements are authorized without it.
+func (b bundle) createAndSign(ctx context.Context, binary string, notarize bool) error {
 	b.stepRunner.AddSteps(b.ap.Clean())
 	b.stepRunner.AddSteps(b.ap.Create()...)
 	if b.cfg.ProvisioningProfile != "" {
@@ -79,6 +84,21 @@ func (b bundle) createAndSign(ctx context.Context, binary string) error {
 			b.ap.Sign(signer),
 		)
 	}
+
+	// When requested (notarize: true, and only for `install`), notarize the
+	// signed bundle with Apple's notary service and staple the ticket so
+	// Gatekeeper accepts it on other Macs. It requires a signed bundle and notary
+	// credentials.
+	if notarize && b.cfg.Notarize {
+		if b.cfg.Identity == "" {
+			return fmt.Errorf("notarize is set but the bundle is not signed: set an 'identity' in the config")
+		}
+		if !b.cfg.Notary.Configured() {
+			return fmt.Errorf("notarize is set but no notarization credentials are configured: set a 'notary' section in the config")
+		}
+		b.stepRunner.AddSteps(b.ap.Notarize(b.cfg.Notary)...)
+	}
+
 	results := b.stepRunner.Run(ctx, buildtools.NewCommandRunner())
 	for _, r := range results {
 		if r.Error() != nil {
