@@ -17,11 +17,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"cloudeng.io/cmdutil/flags"
 	"cloudeng.io/logging/ctxlog"
 	"cloudeng.io/macos/keychain"
-	"cloudeng.io/os/executil"
 	"cloudeng.io/security/keys/keychain/plugins"
 )
 
@@ -53,24 +53,12 @@ type ReadFlags struct {
 	Type flags.Enum[keychain.Type] `subcmd:"keychain-type,all,'the type of keychain plugin to use'"`
 }
 
-// WriteType is like Type, except that it does not allow the value 'all'.
-type WriteType int
-
-// EnumValues satisfies flags.EnumType[WriteType].
-func (WriteType) EnumValues() map[string]WriteType {
-	return map[string]WriteType{
-		"file":                  WriteType(keychain.KeychainFileBased),
-		"data-protection-local": WriteType(keychain.KeychainDataProtectionLocal),
-		"icloud":                WriteType(keychain.KeychainICloud),
-	}
-}
-
 // WriteFlags are used for writing to the keychain plugin.
 type WriteFlags struct {
 	KeychainFlags
 	// Note that the default value is 'all' for reading but 'icloud' for writing.
 	// 'all' is not accepted here: it names a search across all keychains.
-	Type          flags.Enum[WriteType]              `subcmd:"keychain-type,icloud,'the type of keychain plugin to use: data-protection-local, file or icloud'"`
+	Type          flags.Enum[keychain.WriteType]     `subcmd:"keychain-type,icloud,'the type of keychain plugin to use: data-protection-local, file or icloud'"`
 	UpdateInPlace bool                               `subcmd:"keychain-update-in-place,false,set to true to update existing note in place"`
 	Accessibility flags.Enum[keychain.Accessibility] `subcmd:"keychain-accessibility,when-unlocked,optional accessibility level for the keychain item"`
 }
@@ -198,7 +186,10 @@ func LocateKeychainBinaryInAppBundle(appBundle, binary string) (string, string, 
 // only the resolved path reveals the real location inside the bundle. The
 // executable is expected at <host>.app/Contents/MacOS/<name>, so the plugin
 // bundle is a sibling under Contents/Library.
-func BundledPluginApp() (string, bool) {
+func BundledPluginApp(pluginBinary string) (string, bool) {
+	if len(pluginBinary) == 0 {
+		pluginBinary = DefaultPluginBinary
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		return "", false
@@ -206,11 +197,25 @@ func BundledPluginApp() (string, bool) {
 	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
 		exe = resolved
 	}
-	contents := filepath.Dir(filepath.Dir(exe)) // .../Contents/MacOS/<exe> -> .../Contents
-	app := filepath.Join(contents, "Library", executil.ExecName(DefaultPluginBinary)+".app")
-	bin := filepath.Join(app, "Contents", "MacOS", executil.ExecName(DefaultPluginBinary))
-	if fi, err := os.Stat(bin); err == nil && fi.Mode().IsRegular() && fi.Mode().Perm()&0100 != 0 {
-		return app, true
+
+	// Let's see if this binary is an app bundle.
+	macos := filepath.Dir(exe)
+	if !strings.EqualFold(filepath.Base(macos), "macos") {
+		return "", false
+	}
+	contents := filepath.Dir(macos)
+	if !strings.EqualFold(filepath.Base(contents), "contents") {
+		return "", false
+	}
+	appBundle := filepath.Dir(contents)
+
+	// Look for a plugin binary.
+	plugin := locateInBundle(appBundle, pluginBinary)
+	if len(plugin) == 0 {
+		return "", false
+	}
+	if fi, err := os.Stat(plugin); err == nil && fi.Mode().IsRegular() && fi.Mode().Perm()&0100 != 0 {
+		return plugin, true
 	}
 	return "", false
 }
@@ -302,14 +307,19 @@ type FS interface {
 // error, as is any other lookup failure.
 func (pc Config) FS(writable bool) (FS, error) {
 	binary, err := LocatePluginBinary(pc.KeychainBundle, pc.KeychainPluginBundle, pc.Binary)
-	if err != nil {
-		notFound := errors.Is(err, exec.ErrNotFound) || errors.Is(err, fs.ErrNotExist)
-		if pc.OnlyUsePlugin || !notFound {
+	if err == nil {
+		return plugins.NewFS(binary, writable, pc), nil
+	}
+	notFound := errors.Is(err, exec.ErrNotFound) || errors.Is(err, fs.ErrNotExist) || errors.Is(err, os.ErrNotExist)
+	if notFound {
+		if binary, ok := BundledPluginApp(pc.Binary); ok {
+			return plugins.NewFS(binary, writable, pc), nil
+		}
+		if pc.OnlyUsePlugin {
 			return nil, err
 		}
-		return pc.directFS(), nil
 	}
-	return plugins.NewFS(binary, writable, pc), nil
+	return pc.directFS(), nil
 }
 
 // directFS returns an FS that accesses the keychain directly, in-process,

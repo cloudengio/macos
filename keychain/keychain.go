@@ -111,3 +111,15 @@ func ParseType(s string) (Type, error) {
 	}
 	return e.Value, nil
 }
+
+// WriteType is like Type, except that it does not allow the value 'all'.
+type WriteType int
+
+// EnumValues satisfies flags.EnumType[WriteType].
+func (WriteType) EnumValues() map[string]WriteType {
+	return map[string]WriteType{
+		"file":                  WriteType(KeychainFileBased),
+		"data-protection-local": WriteType(KeychainDataProtectionLocal),
+		"icloud":                WriteType(KeychainICloud),
+	}
+}

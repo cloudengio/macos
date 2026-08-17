@@ -1,0 +1,19 @@
+identity: "${CLOUDENG_SIGNING}"
+profile: "${CLOUDENG_KEYCHAIN_PROFILE}"
+# Notarize the signed bundle so it opens on other Macs. The credentials are a
+# notarytool stored profile; create it once with `xcrun notarytool
+# store-credentials` (App Store Connect API key or an app-specific password),
+# then reference it by name here.
+notarize: true
+notary:
+  keychain_profile: "${CLOUDENG_KEYCHAIN_NOTARY}"
+entitlements:
+  com.apple.security.app-sandbox: true
+  keychain-access-groups:
+    - "${CLOUDENG_DEVID}.*"
+  #com.apple.security.temporary-exception.files.absolute-path.read-write:
+  #  ["${CUSTOM_KEYCHAIN_PATH}"]
+info.plist:
+  CFBundleIdentifier: "${CLOUDENG_DEVID}.io.cloudeng.${CLOUDENG_KEYCHAIN_IDENTIFIER}"
+  CFBundleIconFile: AppIcon.icns
+icon: keychain_plugin_icon.png

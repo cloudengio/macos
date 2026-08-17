@@ -64,8 +64,10 @@ fastlane/test_output
 **/.DS_Store
 
 cmd/aws-secrets/aws-secrets
-cmd/keychain/keychain
-cmd/keychain-plugin/keychain-plugin
+cmd/cloudeng-keychain/cloudeng-keychain
+cmd/cloudeng-keychain/cloudeng-keychain.app
+cmd/cloudeng-keychain/cloudeng-keychain-plugin/cloudeng-keychain-plugin
+
 cmd/docker-entrypoint/docker-entrypoint
 go.macos.code-workspace
 go.work
