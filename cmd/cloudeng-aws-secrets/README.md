@@ -1,7 +1,7 @@
-# [cloudeng.io/macos/cmd/aws-secrets](https://pkg.go.dev/cloudeng.io/macos/cmd/aws-secrets?tab=doc)
+# [cloudeng.io/macos/cmd/cloudeng-aws-secrets](https://pkg.go.dev/cloudeng.io/macos/cmd/cloudeng-aws-secrets?tab=doc)
 
 
-Usage of `aws-secrets`
+Usage of aws-secrets
 
     provide access to aws secretsmanager across multiple operating systems
 
