@@ -20,6 +20,8 @@ import (
 	"cloudeng.io/file"
 	"cloudeng.io/file/filetestutil"
 	"cloudeng.io/security/keys/keychain/keychaintestutil"
+	"cloudeng.io/security/keys/keychain/plugins"
+	"github.com/aws/smithy-go"
 )
 
 var awsInstance *awstestutil.AWS
@@ -30,7 +32,7 @@ func TestMain(m *testing.M) {
 
 func runCLI(ctx context.Context, args ...string) error {
 	cmd := cli()
-	return cmd.DispatchWithArgs(ctx, "secrets", args...)
+	return cmd.DispatchWithArgs(ctx, "cloudeng-aws-secrets", args...)
 }
 
 func TestErrors(t *testing.T) {
@@ -73,6 +75,27 @@ func TestErrors(t *testing.T) {
 	}
 }
 
+func TestContextWithReadOnlyFS(t *testing.T) {
+	ctx := context.Background()
+	p := keychaintestutil.New()
+	readOnlyFS := keychaintestutil.NewFS(p, false)
+	ctx = file.ContextWithFS(ctx, readOnlyFS)
+
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "secret.txt")
+	_ = os.WriteFile(tmpFile, []byte("val"), 0600)
+
+	// Should successfully read from ContextWithFS rather than falling back to system keychain
+	ims := keys.NewInMemoryKeyStore()
+	if err := ims.WriteYAML(context.Background(), keychaintestutil.NewFS(p, true), "ro-kc", 0600); err != nil {
+		t.Fatalf("writing keystore: %v", err)
+	}
+
+	if err := runCLI(ctx, "read", "--arn=test-secret", "--keychain-item=ro-kc", "--aws-key-info-id=nonexistent-key", tmpFile); err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected key info not found error from injected read-only FS, got: %v", err)
+	}
+}
+
 func TestHandleError(t *testing.T) {
 	if err := handleError(nil); err != nil {
 		t.Errorf("expected nil error, got %v", err)
@@ -80,6 +103,53 @@ func TestHandleError(t *testing.T) {
 	sampleErr := errors.New("sample error")
 	if err := handleError(sampleErr); !errors.Is(err, sampleErr) {
 		t.Errorf("expected sampleErr, got %v", err)
+	}
+
+	// 1. Test smithy.GenericAPIError
+	apiErr := &smithy.GenericAPIError{
+		Code:    "ResourceNotFoundException",
+		Message: "Secret not found in SecretsManager",
+	}
+	out, err := filetestutil.CaptureStderr(func() error {
+		return handleError(apiErr)
+	})
+	if !errors.Is(err, apiErr) {
+		t.Errorf("expected apiErr, got %v", err)
+	}
+	if !strings.Contains(string(out), "ResourceNotFoundException") || !strings.Contains(string(out), "Secret not found in SecretsManager") {
+		t.Errorf("stderr missing expected AWS API error text: %s", out)
+	}
+
+	// 2. Test smithy.OperationError wrapping apiErr
+	opErr := &smithy.OperationError{
+		ServiceID:     "Secrets Manager",
+		OperationName: "GetSecretValue",
+		Err:           apiErr,
+	}
+	out, err = filetestutil.CaptureStderr(func() error {
+		return handleError(opErr)
+	})
+	if !errors.Is(err, opErr) {
+		t.Errorf("expected opErr, got %v", err)
+	}
+	if !strings.Contains(string(out), "Secrets Manager/GetSecretValue") || !strings.Contains(string(out), "ResourceNotFoundException") {
+		t.Errorf("stderr missing expected AWS Operation error text: %s", out)
+	}
+
+	// 3. Test plugins.Error
+	pluginErr := &plugins.Error{
+		Message: "keychain locked",
+		Detail:  "user needs to unlock",
+		Stderr:  "auth failure",
+	}
+	out, err = filetestutil.CaptureStderr(func() error {
+		return handleError(pluginErr)
+	})
+	if !errors.Is(err, pluginErr) {
+		t.Errorf("expected pluginErr, got %v", err)
+	}
+	if !strings.Contains(string(out), "keychain locked") || !strings.Contains(string(out), "auth failure") {
+		t.Errorf("stderr missing expected plugin error text: %s", out)
 	}
 }
 

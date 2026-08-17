@@ -8,7 +8,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"cloudeng.io/aws/awsconfig"
 	"cloudeng.io/aws/awssecretsfs"
@@ -17,9 +20,11 @@ import (
 	"cloudeng.io/cmdutil/subcmd"
 	"cloudeng.io/file"
 	"cloudeng.io/macos/keychain/plugin"
+	"cloudeng.io/security/keys/keychain/plugins"
+	"github.com/aws/smithy-go"
 )
 
-const cmdSpec = `name: secrets
+const cmdSpec = `name: cloudeng-aws-secrets
 summary: provide access to aws secretsmanager on macos with aws credentials stored in the keychain
 commands:
   - name: read
@@ -79,6 +84,8 @@ func (sc secretsCmd) config(ctx context.Context, writeable bool, fv Flags) (cont
 	var fs file.ReadFileFS
 	if rwfs, ok := file.ReadWriteFSFromContext(ctx); ok {
 		fs = rwfs
+	} else if rfs, ok := file.FSFromContext(ctx); ok && len(rfs) > 0 {
+		fs = rfs[0]
 	} else {
 		kcCfg, err := fv.ReadFlags.Config()
 		if err != nil {
@@ -113,21 +120,39 @@ func (sc secretsCmd) Read(ctx context.Context, f any, args []string) error {
 	fl := f.(*ReadFlags)
 	ctx, fs, err := sc.config(ctx, false, fl.Flags)
 	if err != nil {
-		return fmt.Errorf("%w", handleError(err))
+		return handleError(err)
 	}
-	return keyscmd.SafeWriteToLocal(ctx, fs, fl.ARN, args[0], 0600)
+	return handleError(keyscmd.SafeWriteToLocal(ctx, fs, fl.ARN, args[0], 0600))
 }
 
 func (sc secretsCmd) Write(ctx context.Context, f any, args []string) error {
 	fl := f.(*WriteFlags)
 	ctx, fs, err := sc.config(ctx, true, fl.Flags)
 	if err != nil {
-		return fmt.Errorf("%s: %w", args[0], handleError(err))
+		return handleError(err)
 	}
-	return keyscmd.ReadFromLocal(ctx, args[0], fs, fl.ARN, 0600)
+	return handleError(keyscmd.ReadFromLocal(ctx, args[0], fs, fl.ARN, 0600))
 }
 
 func handleError(err error) error {
-	// placeholder for catching AWS specific errors.
+	if err == nil {
+		return nil
+	}
+	name := filepath.Base(os.Args[0])
+	if pluginErr := plugins.AsError(err); pluginErr != nil {
+		fmt.Fprintf(os.Stderr, "%s: keychain plugin error: %s: %s\n", name, pluginErr.Message, pluginErr.Detail)
+		if pluginErr.Stderr != "" {
+			fmt.Fprintf(os.Stderr, "%s: keychain plugin stderr: %s\n", name, pluginErr.Stderr)
+		}
+	}
+	var apiErr smithy.APIError
+	if errors.As(err, &apiErr) {
+		var opErr *smithy.OperationError
+		if errors.As(err, &opErr) {
+			fmt.Fprintf(os.Stderr, "%s: AWS error (%s/%s): %s: %s\n", name, opErr.Service(), opErr.Operation(), apiErr.ErrorCode(), apiErr.ErrorMessage())
+		} else {
+			fmt.Fprintf(os.Stderr, "%s: AWS API error: %s: %s\n", name, apiErr.ErrorCode(), apiErr.ErrorMessage())
+		}
+	}
 	return err
 }
