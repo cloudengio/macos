@@ -4,7 +4,7 @@
 
 //go:build darwin
 
-//go:generate go run builder.go --notarize
+//go:generate go run builder.go
 
 package main
 
@@ -33,7 +33,7 @@ type globalFlags struct {
 
 var globals globalFlags
 
-var cmdSpec = fmt.Sprintf(`name: keychain
+var cmdSpec = fmt.Sprintf(`name: cloudeng-keychain
 summary: provide access to local keychains across multiple operating systems
 commands:
   - name: read
@@ -142,6 +142,14 @@ func (pluginCmd) getWriteFS(ctx context.Context, fl plugin.WriteFlags, item stri
 	if err != nil {
 		return nil, err
 	}
+	if globals.Verbose {
+		if _, ok := fs.(*keychain.T); ok {
+			fmt.Fprintf(os.Stderr, "accessing keychain directly\n")
+		}
+		if pfs, ok := fs.(*plugins.FS); ok {
+			fmt.Fprintf(os.Stderr, "using plugin at: %s\n", pfs.PluginPath())
+		}
+	}
 	return fs, nil
 }
 
@@ -184,7 +192,7 @@ type ListKeysFlags struct {
 	KeychainItemFlag
 }
 
-func (c pluginCmd) ListKeys(ctx context.Context, f any, args []string) error {
+func (c pluginCmd) ListKeys(ctx context.Context, f any, _ []string) error {
 	fl := f.(*ListKeysFlags)
 	fs, err := c.getReadFS(ctx, fl.ReadFlags, fl.KeyChainItem)
 	if err != nil {
@@ -215,7 +223,7 @@ func (c pluginCmd) GetKeyInfo(ctx context.Context, f any, args []string) error {
 		return err
 	}
 	kr := keyscmd.NewKeyReader(fs)
-	ki, err := kr.GetKey(ctx, fl.KeyChainItem, fl.KeySpecFlags.KeySpec())
+	ki, err := kr.GetKey(ctx, fl.KeyChainItem, fl.KeySpec())
 	if err != nil {
 		return handleError(fmt.Errorf("failed to get key info from %s: %w", fl.KeyChainItem, err))
 	}
@@ -246,19 +254,19 @@ func (c pluginCmd) SetKeyInfo(ctx context.Context, f any, args []string) error {
 }
 
 type DeleteKeyInfoFlags struct {
-	plugin.ReadFlags
+	plugin.WriteFlags
 	KeychainItemFlag
 	keyscmd.KeySpecFlags
 }
 
-func (c pluginCmd) DeleteKeyInfo(ctx context.Context, f any, args []string) error {
+func (c pluginCmd) DeleteKeyInfo(ctx context.Context, f any, _ []string) error {
 	fl := f.(*DeleteKeyInfoFlags)
-	fs, err := c.getReadFS(ctx, fl.ReadFlags, fl.KeyChainItem)
+	fs, err := c.getWriteFS(ctx, fl.WriteFlags, fl.KeyChainItem)
 	if err != nil {
 		return err
 	}
 	kw := keyscmd.NewKeyWriter(fs)
-	if err := kw.DeleteKey(ctx, fl.KeyChainItem, fl.KeySpecFlags.KeySpec()); err != nil {
+	if err := kw.DeleteKey(ctx, fl.KeyChainItem, fl.KeySpec()); err != nil {
 		return handleError(fmt.Errorf("failed to delete key info from %s: %w", fl.KeyChainItem, err))
 	}
 	return nil
@@ -273,9 +281,9 @@ func handleError(err error) error {
 		return err
 	}
 	name := filepath.Base(os.Args[0])
-	fmt.Printf("%s: plugin error: %s: %s\n", name, pluginErr.Message, pluginErr.Detail)
+	fmt.Fprintf(os.Stderr, "%s: plugin error: %s: %s\n", name, pluginErr.Message, pluginErr.Detail)
 	if pluginErr.Stderr != "" {
-		fmt.Printf("%s: plugin stderr: %s\n", name, pluginErr.Stderr)
+		fmt.Fprintf(os.Stderr, "%s: plugin stderr: %s\n", name, pluginErr.Stderr)
 	}
 	return err
 }

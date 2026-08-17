@@ -13,4 +13,9 @@ Usage of `cloudeng-keychain`
       --keychain-type: data-protection-local, file, icloud
     key-info - manage key info items in a keychain/secrets store, multiple key info items can be stored in a single item. In all cases if input or output is a filename, then "-" or "" will result in stdin or stdout being used as appropriate.
 
+global flags: [--verbose=false]
+
+    -verbose
+      set to enable verbose logging
+
 

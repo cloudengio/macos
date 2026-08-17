@@ -315,9 +315,9 @@ func (pc Config) FS(writable bool) (FS, error) {
 		if binary, ok := BundledPluginApp(pc.Binary); ok {
 			return plugins.NewFS(binary, writable, pc), nil
 		}
-		if pc.OnlyUsePlugin {
-			return nil, err
-		}
+	}
+	if pc.OnlyUsePlugin || !notFound {
+		return nil, err
 	}
 	return pc.directFS(), nil
 }

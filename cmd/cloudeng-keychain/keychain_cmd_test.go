@@ -7,10 +7,12 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -18,13 +20,54 @@ import (
 	"cloudeng.io/cmdutil/keys/keyscmd"
 	"cloudeng.io/file"
 	"cloudeng.io/file/filetestutil"
+	"cloudeng.io/macos/keychain/plugin"
 	"cloudeng.io/security/keys/keychain/keychaintestutil"
 	"cloudeng.io/security/keys/keychain/plugins"
 )
 
 func runCLI(ctx context.Context, args ...string) error {
 	cmd := cli()
-	return cmd.DispatchWithArgs(ctx, "keychain", args...)
+	return cmd.DispatchWithArgs(ctx, "cloudeng-keychain", args...)
+}
+
+// mustRunCLI runs the CLI and fails the test if it returns an error.
+func mustRunCLI(ctx context.Context, t *testing.T, args ...string) {
+	t.Helper()
+	if err := runCLI(ctx, args...); err != nil {
+		t.Fatalf("%v: %v", strings.Join(args, " "), err)
+	}
+}
+
+// mustReadKeyInfo reads a key info from a local JSON file, failing the test if
+// it cannot be read.
+func mustReadKeyInfo(ctx context.Context, t *testing.T, filename string) keys.Info {
+	t.Helper()
+	ki, err := keyscmd.ReadKeyInfoFromLocalJSON(ctx, filename)
+	if err != nil {
+		t.Fatalf("reading keyinfo %v: %v", filename, err)
+	}
+	return ki
+}
+
+// wantKeyInfo checks that ki identifies the expected user and id.
+func wantKeyInfo(t *testing.T, ki keys.Info, user, id string) {
+	t.Helper()
+	if got, want := ki.User, user; got != want {
+		t.Errorf("User = %q, want %q", got, want)
+	}
+	if got, want := ki.ID, id; got != want {
+		t.Errorf("ID = %q, want %q", got, want)
+	}
+}
+
+// wantContains checks that out contains every one of subs.
+func wantContains(t *testing.T, out string, subs ...string) {
+	t.Helper()
+	for _, sub := range subs {
+		if !strings.Contains(out, sub) {
+			t.Errorf("output missing %q: %s", sub, out)
+		}
+	}
 }
 
 func TestReadWriteWithInjectedFS(t *testing.T) {
@@ -107,29 +150,20 @@ func TestKeyInfoLifecycle(t *testing.T) {
 	kiFile2 := filepath.Join(tmpDir, "key2.json")
 
 	// 1. Create KeyInfo files using key-info create
-	if err := runCLI(ctx, "key-info", "create", "--user=alice", "--id=token-1", "--size=16", "--format=hex", kiFile1); err != nil {
-		t.Fatalf("key-info create 1: %v", err)
-	}
-	if err := runCLI(ctx, "key-info", "create", "--user=bob", "--id=token-2", "--size=16", "--format=hex", kiFile2); err != nil {
-		t.Fatalf("key-info create 2: %v", err)
-	}
+	mustRunCLI(ctx, t, "key-info", "create", "--user=alice", "--id=token-1", "--size=16", "--format=hex", kiFile1)
+	mustRunCLI(ctx, t, "key-info", "create", "--user=bob", "--id=token-2", "--size=16", "--format=hex", kiFile2)
 
 	// Verify KeyInfo created
-	ki1, err := keyscmd.ReadKeyInfoFromLocalJSON(ctx, kiFile1)
-	if err != nil {
-		t.Fatalf("reading created keyinfo 1: %v", err)
-	}
-	if ki1.User != "alice" || ki1.ID != "token-1" || len(ki1.Token().Value()) != 32 {
-		t.Fatalf("unexpected ki1: user=%s id=%s tokenLen=%d", ki1.User, ki1.ID, len(ki1.Token().Value()))
+	ki1 := mustReadKeyInfo(ctx, t, kiFile1)
+	wantKeyInfo(t, ki1, "alice", "token-1")
+	// 16 random bytes rendered as hex.
+	if got, want := len(ki1.Token().Value()), 32; got != want {
+		t.Fatalf("ki1 token length = %d, want %d", got, want)
 	}
 
 	// 2. Set KeyInfos into keychain item
-	if err := runCLI(ctx, "key-info", "set", "--keychain-item=my-keys", kiFile1); err != nil {
-		t.Fatalf("key-info set 1: %v", err)
-	}
-	if err := runCLI(ctx, "key-info", "set", "--keychain-item=my-keys", kiFile2); err != nil {
-		t.Fatalf("key-info set 2: %v", err)
-	}
+	mustRunCLI(ctx, t, "key-info", "set", "--keychain-item=my-keys", kiFile1)
+	mustRunCLI(ctx, t, "key-info", "set", "--keychain-item=my-keys", kiFile2)
 
 	// 3. List keys in keychain item
 	listOut, err := filetestutil.CaptureStdout(func() error {
@@ -138,27 +172,19 @@ func TestKeyInfoLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("key-info list: %v", err)
 	}
-	if !strings.Contains(string(listOut), "token-1[alice]") || !strings.Contains(string(listOut), "token-2[bob]") {
-		t.Errorf("list output missing keys: %s", listOut)
-	}
+	wantContains(t, string(listOut), "token-1[alice]", "token-2[bob]")
 
 	// 4. Get a specific KeyInfo
 	getOutFile := filepath.Join(tmpDir, "got-alice.json")
-	if err := runCLI(ctx, "key-info", "get", "--keychain-item=my-keys", "--key-user=alice", "--key-id=token-1", getOutFile); err != nil {
-		t.Fatalf("key-info get: %v", err)
-	}
-	gotKi, err := keyscmd.ReadKeyInfoFromLocalJSON(ctx, getOutFile)
-	if err != nil {
-		t.Fatalf("reading got keyinfo: %v", err)
-	}
-	if gotKi.User != "alice" || gotKi.ID != "token-1" || string(gotKi.Token().Value()) != string(ki1.Token().Value()) {
-		t.Errorf("got unexpected KeyInfo: %+v", gotKi)
+	mustRunCLI(ctx, t, "key-info", "get", "--keychain-item=my-keys", "--key-user=alice", "--key-id=token-1", getOutFile)
+	gotKi := mustReadKeyInfo(ctx, t, getOutFile)
+	wantKeyInfo(t, gotKi, "alice", "token-1")
+	if got, want := gotKi.Token().Value(), ki1.Token().Value(); !bytes.Equal(got, want) {
+		t.Errorf("got token %q, want %q", got, want)
 	}
 
 	// 5. Delete alice / token-1
-	if err := runCLI(ctx, "key-info", "delete", "--keychain-item=my-keys", "--key-user=alice", "--key-id=token-1"); err != nil {
-		t.Fatalf("key-info delete: %v", err)
-	}
+	mustRunCLI(ctx, t, "key-info", "delete", "--keychain-item=my-keys", "--key-user=alice", "--key-id=token-1")
 
 	// Verify alice is deleted and bob remains
 	delGetOut := filepath.Join(tmpDir, "del-check.json")
@@ -167,9 +193,7 @@ func TestKeyInfoLifecycle(t *testing.T) {
 	}
 
 	getBobOut := filepath.Join(tmpDir, "got-bob.json")
-	if err := runCLI(ctx, "key-info", "get", "--keychain-item=my-keys", "--key-user=bob", "--key-id=token-2", getBobOut); err != nil {
-		t.Fatalf("getting remaining key bob: %v", err)
-	}
+	mustRunCLI(ctx, t, "key-info", "get", "--keychain-item=my-keys", "--key-user=bob", "--key-id=token-2", getBobOut)
 }
 
 func TestErrors(t *testing.T) {
@@ -259,13 +283,35 @@ func TestHandleErrorHelper(t *testing.T) {
 		Detail:  "some detail",
 		Stderr:  "plugin stderr text",
 	}
-	out, err := filetestutil.CaptureStdout(func() error {
+	out, err := filetestutil.CaptureStderr(func() error {
 		return handleError(pluginErrWithStderr)
 	})
 	if !errors.Is(err, pluginErrWithStderr) {
 		t.Errorf("expected pluginErrWithStderr, got %v", err)
 	}
 	if !strings.Contains(string(out), "plugin failed") || !strings.Contains(string(out), "plugin stderr text") {
-		t.Errorf("stdout missing expected error text: %s", out)
+		t.Errorf("stderr missing expected error text: %s", out)
 	}
+}
+
+func TestDeleteKeyInfoUsesWriteFlags(t *testing.T) {
+	// Verify DeleteKeyInfoFlags embeds plugin.WriteFlags (not ReadFlags).
+	var fl DeleteKeyInfoFlags
+	wf := fl.WriteFlags
+	if got, want := reflect.TypeOf(wf), reflect.TypeOf(plugin.WriteFlags{}); got != want {
+		t.Fatalf("DeleteKeyInfoFlags.WriteFlags type = %v, want %v", got, want)
+	}
+
+	ctx := context.Background()
+	p := keychaintestutil.New()
+	inMemFS := keychaintestutil.NewFS(p, true)
+	ctx = file.ContextWithReadWriteFS(ctx, inMemFS)
+
+	tmpDir := t.TempDir()
+	keyFile := filepath.Join(tmpDir, "k.json")
+	mustRunCLI(ctx, t, "key-info", "create", "--user=alice", "--id=id-1", keyFile)
+	mustRunCLI(ctx, t, "key-info", "set", "--keychain-item=items", keyFile)
+
+	// Delete key
+	mustRunCLI(ctx, t, "key-info", "delete", "--keychain-item=items", "--key-user=alice", "--key-id=id-1")
 }

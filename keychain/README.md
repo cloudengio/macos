@@ -263,6 +263,22 @@ func (t *Type) UnmarshalYAML(node *yaml.Node) error
 
 
 
+### Type WriteType
+```go
+type WriteType int
+```
+WriteType is like Type, except that it does not allow the value 'all'.
+
+### Methods
+
+```go
+func (WriteType) EnumValues() map[string]WriteType
+```
+EnumValues satisfies flags.EnumType[WriteType].
+
+
+
+
 
 
 
