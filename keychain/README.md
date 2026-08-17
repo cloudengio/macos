@@ -42,6 +42,12 @@ ParseAccessibility parses a string into an Accessibility.
 ### Methods
 
 ```go
+func (Accessibility) EnumValues() map[string]Accessibility
+```
+EnumValues satisfies flags.EnumType[Accessibility].
+
+
+```go
 func (a Accessibility) String() string
 ```
 
@@ -174,7 +180,9 @@ existing note if WithUpdateInPlace was set to true.
 ```go
 type Type int
 ```
-Type represents the type of keychain to use.
+Type represents the type of keychain to use, it maps to the underlying
+system keychain types but also includes the pseudotype 'all' which can be
+used, only when reading, to specify all keychains.
 
 ### Constants
 ### KeychainFileBased, KeychainDataProtectionLocal, KeychainICloud, KeychainAll
@@ -211,6 +219,12 @@ ParseType parses a string into a KeychainType.
 
 
 ### Methods
+
+```go
+func (Type) EnumValues() map[string]Type
+```
+EnumValues satisfies flags.EnumType[Type].
+
 
 ```go
 func (t Type) MarshalJSON() ([]byte, error)

@@ -19,8 +19,8 @@ type NotaryConfig struct {
 	// with `xcrun notarytool store-credentials <name>`.
 	KeychainProfile string `yaml:"keychain_profile"`
 	// AppleID, TeamID and Password provide credentials directly when a keychain
-	// profile is not used. Password may be an app-specific password or a
-	// `@keychain:<item>` reference understood by notarytool.
+	// profile is not used. To avoid exposing credentials in the process table,
+	// Password should use `@keychain:<item>` or `@env:<VAR_NAME>` reference syntax.
 	AppleID  string `yaml:"apple_id"`
 	TeamID   string `yaml:"team_id"`
 	Password string `yaml:"password"`
@@ -56,7 +56,10 @@ func (n NotaryConfig) authArgs() ([]string, error) {
 // submission (notarytool does not accept a bare .app); the archive is removed
 // once submission completes.
 func (b AppBundle) Notarize(cfg NotaryConfig) []Step {
-	archive := b.notaryArchivePath()
+	archive, err := b.notaryArchivePath()
+	if err != nil {
+		return []Step{ErrorStep(err, "ditto")}
+	}
 	return []Step{
 		b.zipForNotarization(archive),
 		b.submitForNotarization(cfg, archive),
@@ -64,16 +67,30 @@ func (b AppBundle) Notarize(cfg NotaryConfig) []Step {
 	}
 }
 
-// notaryArchivePath is the temporary zip submitted to notarytool.
-func (b AppBundle) notaryArchivePath() string {
-	return filepath.Join(os.TempDir(), filepath.Base(b.Path)+".notarize.zip")
+// notaryArchivePath creates a secure temporary zip file for notarytool submission.
+func (b AppBundle) notaryArchivePath() (string, error) {
+	f, err := os.CreateTemp("", filepath.Base(b.Path)+"-*.notarize.zip")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temporary archive for notarization: %w", err)
+	}
+	name := f.Name()
+	if err := f.Close(); err != nil {
+		_ = os.Remove(name)
+		return "", err
+	}
+	return name, nil
 }
 
 // zipForNotarization zips the bundle into archive using ditto, which preserves
 // the bundle structure and code-signing metadata.
 func (b AppBundle) zipForNotarization(archive string) Step {
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
-		return cmdRunner.Run(ctx, "ditto", "-c", "-k", "--keepParent", b.Path, archive)
+		res, err := cmdRunner.Run(ctx, "ditto", "-c", "-k", "--keepParent", b.Path, archive)
+		if err != nil {
+			_ = os.Remove(archive)
+			return res, fmt.Errorf("failed to zip bundle for notarization: %w", err)
+		}
+		return res, nil
 	})
 }
 

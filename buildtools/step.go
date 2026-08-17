@@ -227,13 +227,19 @@ func (r *CommandRunner) Run(ctx context.Context, name string, args ...string) (S
 	start := time.Now()
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = CWDFromContext(ctx)
+	var buf bytes.Buffer
+	var stdout io.Writer = &buf
+	var stderr io.Writer = &buf
 	if r.options.stdout != nil {
-		cmd.Stdout = r.options.stdout
+		stdout = io.MultiWriter(&buf, r.options.stdout)
 	}
 	if r.options.stderr != nil {
-		cmd.Stderr = r.options.stderr
+		stderr = io.MultiWriter(&buf, r.options.stderr)
 	}
-	output, err := cmd.CombinedOutput()
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
+	err := cmd.Run()
+	output := buf.Bytes()
 	return StepResult{executable: name, args: args, output: output, duration: time.Since(start), err: err}, err
 }
 

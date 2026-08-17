@@ -68,7 +68,7 @@ func configForGoInstall(installDir, binary string, merged []byte) (config, error
 	}
 	cfg, err := configFromMerged(merged, binary)
 	if err != nil {
-		return config{}, fmt.Errorf("error processing config for go build: %v", err)
+		return config{}, fmt.Errorf("error processing config for go install: %v", err)
 	}
 	if cfg.Path == "" {
 		cfg.Path = filepath.Join(installDir, filepath.Base(binary)+".app")
