@@ -74,26 +74,6 @@ func (kc T) writeTypeOrDefault() Type {
 	return kc.typ
 }
 
-const (
-	// KeychainFileBased represents the file-based keychain.
-	// This is the legacy, local only, file based keychain.
-	KeychainFileBased Type = iota
-	// KeychainDataProtectionLocal represents the data protection
-	// keychain which is local, but integrated with the system's secure
-	// enclave. Applications that use must be signed and have
-	// appropriate entitlements.
-	KeychainDataProtectionLocal
-	// KeychainICloud represents the iCloud keychain that can be synced
-	// across devices.
-	// Applications that use must be signed and have appropriate
-	// entitlements.
-	KeychainICloud
-	// KeychainAll represents any keychain type, it can only be used for
-	// reading and indicates that all keychains will be searched for
-	// the requested item.
-	KeychainAll
-)
-
 // Accessibility is the items accessibility
 type Accessibility int
 
@@ -133,41 +113,6 @@ func ParseAccessibility(s string) (Accessibility, error) {
 		return 0, err
 	}
 	return e.Value, nil
-}
-
-// ValidValues returns all supported accessibility values as a sorted,
-// comma-separated string, suitable for use in error messages.
-func (Accessibility) ValidValues() string {
-	return flags.Enum[Accessibility]{}.AllowedValues()
-}
-
-// EnumValues satisfies flags.EnumType[Type].
-func (Type) EnumValues() map[string]Type {
-	return map[string]Type{
-		"file":                  KeychainFileBased,
-		"data-protection-local": KeychainDataProtectionLocal,
-		"icloud":                KeychainICloud,
-		"all":                   KeychainAll,
-	}
-}
-
-func (t Type) String() string {
-	return flags.Enum[Type]{Value: t}.String()
-}
-
-// ParseType parses a string into a KeychainType.
-func ParseType(s string) (Type, error) {
-	var e flags.Enum[Type]
-	if err := e.Set(s); err != nil {
-		return 0, err
-	}
-	return e.Value, nil
-}
-
-// ValidValues returns all supported keychain type values as a sorted,
-// comma-separated string, suitable for use in error messages.
-func (Type) ValidValues() string {
-	return flags.Enum[Type]{}.AllowedValues()
 }
 
 // T represents a keychain that can be used to read and write secure notes.

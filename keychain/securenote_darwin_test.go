@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"cloudeng.io/cmdutil/flags"
 	"cloudeng.io/file"
 	"cloudeng.io/macos/keychain"
 )
@@ -40,25 +41,18 @@ func TestType(t *testing.T) {
 		}
 	}
 
-	// The aliases accepted by the previous hand written parser ("default",
-	// "data-protection", "local" and "") are no longer valid.
+	// Test error reporting
+	var zero flags.Enum[keychain.Type]
+	validValues := zero.AllowedValues()
 	for _, in := range []string{"invalid", "default", "data-protection", "local", ""} {
 		_, err := keychain.ParseType(in)
 		if err == nil {
 			t.Errorf("ParseType(%q): expected an error, got nil", in)
 			continue
 		}
-		if !strings.Contains(err.Error(), keychain.Type(0).ValidValues()) {
+		if !strings.Contains(err.Error(), validValues) {
 			t.Errorf("ParseType(%q): error %q does not list the valid values", in, err)
 		}
-	}
-}
-
-func TestTypeValidValues(t *testing.T) {
-	got := keychain.Type(0).ValidValues()
-	want := "all, data-protection-local, file, icloud"
-	if got != want {
-		t.Errorf("ValidValues() = %q, want %q", got, want)
 	}
 }
 
@@ -89,25 +83,17 @@ func TestAccessibility(t *testing.T) {
 		}
 	}
 
+	var zero flags.Enum[keychain.Accessibility]
+	validValues := zero.AllowedValues()
 	for _, in := range []string{"invalid", ""} {
 		_, err := keychain.ParseAccessibility(in)
 		if err == nil {
 			t.Errorf("ParseAccessibility(%q): expected an error, got nil", in)
 			continue
 		}
-		if !strings.Contains(err.Error(), keychain.Accessibility(0).ValidValues()) {
+		if !strings.Contains(err.Error(), validValues) {
 			t.Errorf("ParseAccessibility(%q): error %q does not list the valid values", in, err)
 		}
-	}
-}
-
-func TestAccessibilityValidValues(t *testing.T) {
-	got := keychain.Accessibility(0).ValidValues()
-	want := "after-first-unlock, after-first-unlock-this-device-only, always, " +
-		"always-this-device-only, default, when-passcode-set-this-device-only, " +
-		"when-unlocked, when-unlocked-this-device-only"
-	if got != want {
-		t.Errorf("ValidValues() = %q, want %q", got, want)
 	}
 }
 

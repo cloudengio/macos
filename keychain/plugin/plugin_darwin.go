@@ -51,14 +51,27 @@ type KeychainFlags struct {
 type ReadFlags struct {
 	KeychainFlags
 	// Note that the default value is 'all' for reading but 'icloud' for writing.
-	Type flags.Enum[keychain.Type] `subcmd:"keychain-type,all,'the type of keychain plugin to use: file, data-protection, icloud or all'"`
+	Type flags.Enum[keychain.Type] `subcmd:"keychain-type,all,'the type of keychain plugin to use'"`
+}
+
+// WriteType is like Type, except that it does not allow the value 'all'.
+type WriteType int
+
+// EnumValues satisfies flags.EnumType[WriteType].
+func (WriteType) EnumValues() map[string]WriteType {
+	return map[string]WriteType{
+		"file":                  WriteType(keychain.KeychainFileBased),
+		"data-protection-local": WriteType(keychain.KeychainDataProtectionLocal),
+		"icloud":                WriteType(keychain.KeychainICloud),
+	}
 }
 
 // WriteFlags are used for writing to the keychain plugin.
 type WriteFlags struct {
 	KeychainFlags
 	// Note that the default value is 'all' for reading but 'icloud' for writing.
-	Type          flags.Enum[keychain.Type]          `subcmd:"keychain-type,icloud,'the type of keychain plugin to use: file, data-protection or icloud'"`
+	// 'all' is not accepted here: it names a search across all keychains.
+	Type          flags.Enum[WriteType]              `subcmd:"keychain-type,icloud,'the type of keychain plugin to use: data-protection-local, file or icloud'"`
 	UpdateInPlace bool                               `subcmd:"keychain-update-in-place,false,set to true to update existing note in place"`
 	Accessibility flags.Enum[keychain.Accessibility] `subcmd:"keychain-accessibility,when-unlocked,optional accessibility level for the keychain item"`
 }
@@ -223,7 +236,7 @@ func (f ReadFlags) Config() (Config, error) {
 
 func (f WriteFlags) Config() (Config, error) {
 	cfg := f.pluginConfig()
-	cfg.Type = f.Type.Value
+	cfg.Type = keychain.Type(f.Type.Value)
 	cfg.UpdateInPlace = f.UpdateInPlace
 	cfg.Accessibility = f.Accessibility.Value
 	cfg.WriteType = cfg.Type

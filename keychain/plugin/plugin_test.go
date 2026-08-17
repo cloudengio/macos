@@ -60,29 +60,20 @@ func TestPluginFlagsAndConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get config from flags: %v", err)
 	}
-	if got, want := cfg.Binary, egp; got != want {
-		t.Errorf("got Binary %q, want %q", got, want)
+	wantCfg := plugin.Config{
+		Binary:               egp,
+		KeychainBundle:       "not-there.app",
+		KeychainPluginBundle: "not-there-plugin.app",
+		OnlyUsePlugin:        false,
+		Type:                 keychain.KeychainDataProtectionLocal,
+		WriteType:            keychain.KeychainDataProtectionLocal,
+		Account:              "test-account",
+		UpdateInPlace:        true,
+		Accessibility:        keychain.AccessibleWhenUnlocked,
 	}
-	if got, want := cfg.KeychainBundle, "not-there.app"; got != want {
-		t.Errorf("got KeychainBundle %q, want %q", got, want)
-	}
-	if got, want := cfg.KeychainPluginBundle, "not-there-plugin.app"; got != want {
-		t.Errorf("got KeychainPluginBundle %q, want %q", got, want)
-	}
-	if got, want := cfg.OnlyUsePlugin, false; got != want {
-		t.Errorf("got OnlyUsePlugin %v, want %v", got, want)
-	}
-	if got, want := cfg.Type, keychain.KeychainDataProtectionLocal; got != want {
-		t.Errorf("got Type %v, want %v", got, want)
-	}
-	if got, want := cfg.Account, "test-account"; got != want {
-		t.Errorf("got Account %q, want %q", got, want)
-	}
-	if got, want := cfg.UpdateInPlace, true; got != want {
-		t.Errorf("got UpdateInPlace %v, want %v", got, want)
-	}
-	if got, want := cfg.Accessibility, keychain.AccessibleWhenUnlocked; got != want {
-		t.Errorf("got Accessibility %v, want %v", got, want)
+
+	if got, want := cfg, wantCfg; got != want {
+		t.Errorf("got %+v, want %+v", got, want)
 	}
 
 	args = []string{
@@ -110,6 +101,14 @@ func TestPluginFlagsAndConfig(t *testing.T) {
 	if _, err := cfg.FS(false); err == nil {
 		t.Fatalf("expected an error for missing plugin binary, got nil")
 	}
+
+	args = []string{
+		"--keychain-type=all",
+	}
+	if err := fs.Parse(args); err == nil || !strings.Contains(err.Error(), `invalid value "all"`) {
+		t.Errorf("expected an error regarding 'all' not allowed for writing: %v", err)
+	}
+
 }
 
 func TestFSPluginFallback(t *testing.T) {
