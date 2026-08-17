@@ -41,8 +41,8 @@ jobs:
           # Make sure we can build and run the keychain plugin
           # though we can't actually test it here since it requires
           # access to a keychain which we don't have in the runner.
-          cat gobundle-app.yml | sed 's/notarize: true/notarize: false/' > tmp.yml && mv tmp.yml gobundle-app.yml
           go install cloudeng.io/macos/cmd/gobundle@latest
+          (cd cmd/cloudeng-keychain/cloudeng-keychain-plugin; cat gobundle-app.yml | sed 's/notarize: true/notarize: false/' > tmp.yml && mv tmp.yml gobundle-app.yml)
           (cd cmd/cloudeng-keychain/cloudeng-keychain-plugin; go generate .)
           cloudeng-keychain-plugin --help || true
 
