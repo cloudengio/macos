@@ -63,7 +63,7 @@ fastlane/test_output
 
 **/.DS_Store
 
-cmd/aws-secrets/aws-secrets
+cmd/cloudeng-aws-secrets/cloudeng-aws-secrets
 cmd/cloudeng-keychain/cloudeng-keychain
 cmd/cloudeng-keychain/cloudeng-keychain.app
 cmd/cloudeng-keychain/cloudeng-keychain-plugin/cloudeng-keychain-plugin
