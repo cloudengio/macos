@@ -33,7 +33,7 @@ func (dc dockerCmds) run(ctx context.Context, f any, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to get keychain config from flags: %w", err)
 		}
-		fs := plugins.NewFS(cfg.Binary, cfg)
+		fs := plugins.NewFS(cfg.Binary, false, cfg)
 		if err := ims.ReadYAML(ctx, fs, fl.KeychainItem); err != nil {
 			return fmt.Errorf("failed to read keychain item %q: %w", fl.KeychainItem, err)
 		}

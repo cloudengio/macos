@@ -20,6 +20,7 @@ import (
 	"io/fs"
 	"log/slog"
 
+	"cloudeng.io/cmdutil/flags"
 	"github.com/cloudengio/go-keychain"
 )
 
@@ -73,26 +74,6 @@ func (kc T) writeTypeOrDefault() Type {
 	return kc.typ
 }
 
-const (
-	// KeychainFileBased represents the file-based keychain.
-	// This is the legacy, local only, file based keychain.
-	KeychainFileBased Type = iota
-	// KeychainDataProtectionLocal represents the data protection
-	// keychain which is local, but integrated with the system's secure
-	// enclave. Applications that use must be signed and have
-	// appropriate entitlements.
-	KeychainDataProtectionLocal
-	// KeychainICloud represents the iCloud keychain that can be synced
-	// across devices.
-	// Applications that use must be signed and have appropriate
-	// entitlements.
-	KeychainICloud
-	// KeychainAll represents any keychain type, it can only be used for
-	// reading and indicates that all keychains will be searched for
-	// the requested item.
-	KeychainAll
-)
-
 // Accessibility is the items accessibility
 type Accessibility int
 
@@ -107,82 +88,31 @@ const (
 	AccessibleAccessibleAlwaysThisDeviceOnly = Accessibility(keychain.AccessibleAccessibleAlwaysThisDeviceOnly)
 )
 
-func (a Accessibility) String() string {
-	switch a {
-	case AccessibleDefault:
-		return "default"
-	case AccessibleWhenUnlocked:
-		return "when-unlocked"
-	case AccessibleAfterFirstUnlock:
-		return "after-first-unlock"
-	case AccessibleAlways:
-		return "always"
-	case AccessibleWhenPasscodeSetThisDeviceOnly:
-		return "when-passcode-set-this-device-only"
-	case AccessibleWhenUnlockedThisDeviceOnly:
-		return "when-unlocked-this-device-only"
-	case AccessibleAfterFirstUnlockThisDeviceOnly:
-		return "after-first-unlock-this-device-only"
-	case AccessibleAccessibleAlwaysThisDeviceOnly:
-		return "always-this-device-only"
-	default:
-		return "unknown"
+// EnumValues satisfies flags.EnumType[Accessibility].
+func (Accessibility) EnumValues() map[string]Accessibility {
+	return map[string]Accessibility{
+		"default":                             AccessibleDefault,
+		"when-unlocked":                       AccessibleWhenUnlocked,
+		"after-first-unlock":                  AccessibleAfterFirstUnlock,
+		"always":                              AccessibleAlways,
+		"when-passcode-set-this-device-only":  AccessibleWhenPasscodeSetThisDeviceOnly,
+		"when-unlocked-this-device-only":      AccessibleWhenUnlockedThisDeviceOnly,
+		"after-first-unlock-this-device-only": AccessibleAfterFirstUnlockThisDeviceOnly,
+		"always-this-device-only":             AccessibleAccessibleAlwaysThisDeviceOnly,
 	}
+}
+
+func (a Accessibility) String() string {
+	return flags.Enum[Accessibility]{Value: a}.String()
 }
 
 // ParseAccessibility parses a string into an Accessibility.
 func ParseAccessibility(s string) (Accessibility, error) {
-	switch s {
-	case "default":
-		return AccessibleDefault, nil
-	case "when-unlocked":
-		return AccessibleWhenUnlocked, nil
-	case "after-first-unlock":
-		return AccessibleAfterFirstUnlock, nil
-	case "always":
-		return AccessibleAlways, nil
-	case "when-passcode-set-this-device-only":
-		return AccessibleWhenPasscodeSetThisDeviceOnly, nil
-	case "when-unlocked-this-device-only":
-		return AccessibleWhenUnlockedThisDeviceOnly, nil
-	case "after-first-unlock-this-device-only":
-		return AccessibleAfterFirstUnlockThisDeviceOnly, nil
-	case "always-this-device-only":
-		return AccessibleAccessibleAlwaysThisDeviceOnly, nil
-	default:
-		return 0, fmt.Errorf("invalid accessibility: %s", s)
+	var e flags.Enum[Accessibility]
+	if err := e.Set(s); err != nil {
+		return 0, err
 	}
-}
-
-func (t Type) String() string {
-	switch t {
-	case KeychainFileBased:
-		return "file"
-	case KeychainDataProtectionLocal:
-		return "data-protection-local"
-	case KeychainICloud:
-		return "icloud"
-	case KeychainAll:
-		return "all"
-	default:
-		return "unknown"
-	}
-}
-
-// ParseType parses a string into a KeychainType.
-func ParseType(s string) (Type, error) {
-	switch s {
-	case "file", "default":
-		return KeychainFileBased, nil
-	case "data-protection-local", "data-protection", "local":
-		return KeychainDataProtectionLocal, nil
-	case "icloud":
-		return KeychainICloud, nil
-	case "all", "":
-		return KeychainAll, nil
-	default:
-		return 0, fmt.Errorf("invalid keychain type: %s", s)
-	}
+	return e.Value, nil
 }
 
 // T represents a keychain that can be used to read and write secure notes.

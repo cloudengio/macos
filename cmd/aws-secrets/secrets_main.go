@@ -78,7 +78,7 @@ func (sc secretsCmd) config(ctx context.Context, fv Flags) (context.Context, aws
 	if err != nil {
 		return ctx, aws.Config{}, fmt.Errorf("failed to get keychain config from flags: %w", err)
 	}
-	fs := plugins.NewFS(kcCfg.Binary, kcCfg)
+	fs := plugins.NewFS(kcCfg.Binary, false, kcCfg)
 	ims := keys.NewInMemoryKeyStore()
 	if err := ims.ReadYAML(ctx, fs, fv.KeychainItem); err != nil {
 		return ctx, aws.Config{}, fmt.Errorf("failed to read: %v: %w", fv.KeychainItem, err)

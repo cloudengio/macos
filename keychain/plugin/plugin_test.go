@@ -9,9 +9,12 @@ package plugin_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
+	iofs "io/fs"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -37,8 +40,9 @@ func TestPluginFlagsAndConfig(t *testing.T) {
 	egp := filepath.Join(cwd, "testdata/example_plugin")
 	args := []string{
 		"--keychain-plugin=" + egp,
-		"--keychain-use-app=not-there",
-		"--keychain-type=data-protection",
+		"--keychain-app-bundle=not-there.app",
+		"--keychain-plugin-bundle=not-there-plugin.app",
+		"--keychain-type=data-protection-local",
 		"--keychain-account=test-account",
 		"--keychain-update-in-place=true",
 		"--keychain-accessibility=when-unlocked",
@@ -56,26 +60,26 @@ func TestPluginFlagsAndConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get config from flags: %v", err)
 	}
-	if got, want := cfg.Binary, egp; got != want {
-		t.Errorf("got Binary %q, want %q", got, want)
+	wantCfg := plugin.Config{
+		Binary:               egp,
+		KeychainBundle:       "not-there.app",
+		KeychainPluginBundle: "not-there-plugin.app",
+		OnlyUsePlugin:        false,
+		Type:                 keychain.KeychainDataProtectionLocal,
+		WriteType:            keychain.KeychainDataProtectionLocal,
+		Account:              "test-account",
+		UpdateInPlace:        true,
+		Accessibility:        keychain.AccessibleWhenUnlocked,
 	}
-	if got, want := cfg.Type, keychain.KeychainDataProtectionLocal; got != want {
-		t.Errorf("got Type %v, want %v", got, want)
-	}
-	if got, want := cfg.Account, "test-account"; got != want {
-		t.Errorf("got Account %q, want %q", got, want)
-	}
-	if got, want := cfg.UpdateInPlace, true; got != want {
-		t.Errorf("got UpdateInPlace %v, want %v", got, want)
-	}
-	if got, want := cfg.Accessibility, keychain.AccessibleWhenUnlocked; got != want {
-		t.Errorf("got Accessibility %v, want %v", got, want)
+
+	if got, want := cfg, wantCfg; got != want {
+		t.Errorf("got %+v, want %+v", got, want)
 	}
 
 	args = []string{
 		"--keychain-plugin=" + egp + "-not-there",
-		"--keychain-use-app=not-there",
-		"--keychain-type=data-protection",
+		"--keychain-app-bundle=not-there.app",
+		"--keychain-type=data-protection-local",
 		"--keychain-account=test-account",
 		"--keychain-update-in-place=true",
 		"--keychain-accessibility=when-unlocked",
@@ -84,8 +88,60 @@ func TestPluginFlagsAndConfig(t *testing.T) {
 		t.Fatalf("failed to parse flags: %v", err)
 	}
 	cfg, err = flagCfg.Config()
-	if err == nil {
+	if err != nil {
+		t.Fatalf("unexpected error from Config: %v", err)
+	}
+	// Locating the plugin binary is deferred to FS. With OnlyUsePlugin=false a
+	// missing plugin falls back to direct keychain access.
+	if _, err := cfg.FS(false); err != nil {
+		t.Fatalf("expected fallback to direct keychain fs, got: %v", err)
+	}
+	// With OnlyUsePlugin, a missing plugin binary is an error.
+	cfg.OnlyUsePlugin = true
+	if _, err := cfg.FS(false); err == nil {
 		t.Fatalf("expected an error for missing plugin binary, got nil")
+	}
+
+	args = []string{
+		"--keychain-type=all",
+	}
+	if err := fs.Parse(args); err == nil || !strings.Contains(err.Error(), `invalid value "all"`) {
+		t.Errorf("expected an error regarding 'all' not allowed for writing: %v", err)
+	}
+
+}
+
+func TestFSPluginFallback(t *testing.T) {
+	// Both "not found" cases must fall back to direct access: a bare name not on
+	// the PATH (exec.ErrNotFound) and an explicit path that does not exist
+	// (fs.ErrNotExist).
+	for _, tc := range []struct {
+		name   string
+		binary string
+		want   error
+	}{
+		{"not-on-path", "definitely-not-a-real-keychain-plugin-xyz", exec.ErrNotFound},
+		{"missing-path", filepath.Join(cwd, "testdata", "no-such-plugin"), iofs.ErrNotExist},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := plugin.Config{Binary: tc.binary, Type: keychain.KeychainAll}
+
+			// OnlyUsePlugin=false falls back to direct, in-process keychain access.
+			cfg.OnlyUsePlugin = false
+			got, err := cfg.FS(false)
+			if err != nil {
+				t.Fatalf("expected fallback to direct keychain fs, got error: %v", err)
+			}
+			if got == nil {
+				t.Fatal("expected a non-nil fs")
+			}
+
+			// OnlyUsePlugin=true makes a missing plugin an error.
+			cfg.OnlyUsePlugin = true
+			if _, err := cfg.FS(false); !errors.Is(err, tc.want) {
+				t.Fatalf("expected %v, got: %v", tc.want, err)
+			}
+		})
 	}
 }
 
@@ -194,38 +250,11 @@ func TestSendResponse(t *testing.T) {
 
 }
 
-func TestReadWriteTypes(t *testing.T) {
-	var r plugin.ReadType
-	if err := r.Set("all"); err != nil {
-		t.Fatalf("failed to set read type: %v", err)
-	}
-	if got, want := r.String(), "all"; got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
-	if err := r.Set("invalid"); err == nil {
-		t.Errorf("expected an error for invalid type")
-	}
-
-	var w plugin.WriteType
-	if err := w.Set("icloud"); err != nil {
-		t.Fatalf("failed to set write type: %v", err)
-	}
-	if got, want := w.String(), "icloud"; got != want {
-		t.Errorf("got %v, want %v", got, want)
-	}
-	if err := w.Set("all"); err == nil {
-		t.Errorf("expected an error for 'all' with write type")
-	}
-	if err := w.Set("invalid"); err == nil {
-		t.Errorf("expected an error for invalid type")
-	}
-}
-
 func TestReadFlags(t *testing.T) {
 	egp := filepath.Join(cwd, "testdata/example_plugin")
 	args := []string{
 		"--keychain-plugin=" + egp,
-		"--keychain-use-app=not-there",
+		"--keychain-app-bundle=not-there.app",
 		"--keychain-type=all",
 		"--keychain-account=test-account",
 	}
@@ -245,6 +274,9 @@ func TestReadFlags(t *testing.T) {
 	if got, want := cfg.Binary, filepath.Join(cwd, "testdata/example_plugin"); got != want {
 		t.Errorf("got Binary %q, want %q", got, want)
 	}
+	if got, want := cfg.KeychainBundle, "not-there.app"; got != want {
+		t.Errorf("got KeychainBundle %q, want %q", got, want)
+	}
 	if got, want := cfg.Type, keychain.KeychainAll; got != want {
 		t.Errorf("got Type %v, want %v", got, want)
 	}
@@ -254,7 +286,7 @@ func TestReadFlags(t *testing.T) {
 
 	args = []string{
 		"--keychain-plugin=" + egp + "-not-there",
-		"--keychain-use-app=not-there",
+		"--keychain-app-bundle=not-there.app",
 		"--keychain-type=all",
 		"--keychain-account=test-account",
 	}
@@ -262,7 +294,17 @@ func TestReadFlags(t *testing.T) {
 		t.Fatalf("failed to parse flags: %v", err)
 	}
 	cfg, err = flagCfg.Config()
-	if err == nil {
+	if err != nil {
+		t.Fatalf("unexpected error from Config: %v", err)
+	}
+	// Locating the plugin binary is deferred to FS. With OnlyUsePlugin=false a
+	// missing plugin falls back to direct keychain access.
+	if _, err := cfg.FS(false); err != nil {
+		t.Fatalf("expected fallback to direct keychain fs, got: %v", err)
+	}
+	// With OnlyUsePlugin, a missing plugin binary is an error.
+	cfg.OnlyUsePlugin = true
+	if _, err := cfg.FS(false); err == nil {
 		t.Fatalf("expected an error for missing plugin binary, got nil")
 	}
 
