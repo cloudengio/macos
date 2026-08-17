@@ -72,7 +72,7 @@ func (pluginCmd) Read(ctx context.Context, f any, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get config from flags: %w", err)
 	}
-	fs := plugins.NewFS(cfg.Binary, cfg)
+	fs := plugins.NewFS(cfg.Binary, false, cfg)
 	contents, err := fs.ReadFileCtx(ctx, args[0])
 	if err != nil {
 		return fmt.Errorf("%s: %w", args[0], handleError(err))
@@ -97,7 +97,7 @@ func (pluginCmd) Write(ctx context.Context, f any, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get config from flags: %w", err)
 	}
-	fs := plugins.NewFS(cfg.Binary, cfg)
+	fs := plugins.NewFS(cfg.Binary, true, cfg)
 	filename := args[0]
 	name := filepath.Base(filename)
 	if fl.Name != "" {
@@ -124,7 +124,7 @@ func (pluginCmd) New(ctx context.Context, f any, _ []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get config from flags: %w", err)
 	}
-	fs := plugins.NewFS(cfg.Binary, cfg)
+	fs := plugins.NewFS(cfg.Binary, true, cfg)
 	var contents []byte
 	switch fl.Template {
 	case "key_info.yaml":
