@@ -12,9 +12,10 @@ import (
 	"strings"
 )
 
-// IsAppBundle returns true if path is a directory ending .app and contains
-// a Contents/Info.plist.
+// IsAppBundle returns true if path is a directory ending with .app and contains
+// a Contents/Info.plist file.
 func IsAppBundle(path string) bool {
+	path = filepath.Clean(path)
 	if !strings.HasSuffix(strings.ToLower(path), ".app") {
 		return false
 	}
@@ -34,7 +35,7 @@ func IsAppBundle(path string) bool {
 }
 
 // LocateInBundle finds the requested binary in the specified app bundle
-// returns its absolute path.
+// and returns its path within that bundle.
 func LocateInBundle(bundlePath, binary string) string {
 	if !IsAppBundle(bundlePath) {
 		return ""
@@ -55,7 +56,7 @@ func LocateInBundle(bundlePath, binary string) string {
 			return err
 		}
 		if d.Name() == binary {
-			if info, err := d.Info(); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0100 != 0 {
+			if info, err := d.Info(); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0111 != 0 {
 				location = filepath.Join(bundlePath, path)
 				return fs.SkipAll
 			}
@@ -65,10 +66,10 @@ func LocateInBundle(bundlePath, binary string) string {
 	return location
 }
 
-// InAppBundle determines if binary is an app bundle and returns the path of
-// the bundle. It uses the simple heurestic of checking to see if the
-// binary has parents .../<app-bundle>/Contents/MacOS and that <app-bundle>
-// satisfies InAppBundle.
+// InAppBundle determines if the running process is within an app bundle and
+// returns the path of the requested binary inside that bundle. It uses the
+// heuristic of checking if the executable is located under
+// .../<app-bundle>/Contents/MacOS and that <app-bundle> satisfies IsAppBundle.
 func InAppBundle(binary string) (string, bool) {
 	exe, err := os.Executable()
 	if err != nil {
@@ -78,7 +79,7 @@ func InAppBundle(binary string) (string, bool) {
 		exe = resolved
 	}
 
-	// Let's see if this binary is an app bundle.
+	// Let's see if this binary is in an app bundle.
 	macos := filepath.Dir(exe)
 	if !strings.EqualFold(filepath.Base(macos), "macos") {
 		return "", false
@@ -95,10 +96,7 @@ func InAppBundle(binary string) (string, bool) {
 
 	// Look for the binary.
 	plugin := LocateInBundle(appBundle, binary)
-	if len(plugin) == 0 {
-		return "", false
-	}
-	if fi, err := os.Stat(plugin); err == nil && fi.Mode().IsRegular() && fi.Mode().Perm()&0100 != 0 {
+	if len(plugin) > 0 {
 		return plugin, true
 	}
 	return "", false
@@ -113,7 +111,7 @@ func LookPathBundle(bundle, pathList string) string {
 	return ""
 }
 
-// LookPathBundle is like LookPathBundle but returns all instances
+// LookPathBundleAll is like LookPathBundle but returns all instances
 // of bundle on pathList without duplicates.
 func LookPathBundleAll(bundle, pathList string) []string {
 	if filepath.IsAbs(bundle) {
@@ -123,9 +121,15 @@ func LookPathBundleAll(bundle, pathList string) []string {
 		return nil
 	}
 
+	if bundle != filepath.Base(bundle) || bundle == "." || bundle == ".." {
+		return nil
+	}
+
 	var found []string
-	seen := make(map[string]struct{}, len(pathList))
-	for _, dir := range filepath.SplitList(pathList) {
+	dirs := filepath.SplitList(pathList)
+	seen := make(map[string]struct{}, len(dirs))
+	for _, dir := range dirs {
+		dir = filepath.Clean(dir)
 		if _, ok := seen[dir]; ok {
 			continue
 		}
