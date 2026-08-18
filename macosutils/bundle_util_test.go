@@ -197,6 +197,86 @@ func TestLookPathBundleAll(t *testing.T) {
 	}
 }
 
+// joinDirs builds a $PATH style list from dirs.
+func joinDirs(dirs ...string) string {
+	return strings.Join(dirs, string(filepath.ListSeparator))
+}
+
+func TestLookupBundleBinary(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// A Tool.app containing no binary at all.
+	dirNone := filepath.Join(tmpDir, "none")
+	makeBundle(t, dirNone, "Tool.app")
+
+	// A Tool.app whose tool-binary is not executable.
+	dirNonExec := filepath.Join(tmpDir, "nonexec")
+	nonExecBundle := makeBundle(t, dirNonExec, "Tool.app")
+	writeFile(t, filepath.Join(nonExecBundle, "Contents", "MacOS", "tool-binary"), "data\n", 0600)
+
+	// A Tool.app with the binary in the conventional location.
+	dirB := filepath.Join(tmpDir, "b")
+	bundleB := makeBundle(t, dirB, "Tool.app")
+	binaryB := writeFile(t, filepath.Join(bundleB, "Contents", "MacOS", "tool-binary"), "#!/bin/sh\n", 0700)
+
+	// A Tool.app with the binary nested deeper in the bundle.
+	dirC := filepath.Join(tmpDir, "c")
+	bundleC := makeBundle(t, dirC, "Tool.app")
+	binaryC := writeFile(t, filepath.Join(bundleC, "Contents", "Library", "helpers", "tool-binary"), "#!/bin/sh\n", 0700)
+
+	// A directory that is not a bundle, for the absolute path cases.
+	dirOther := filepath.Join(tmpDir, "other")
+	makeBundle(t, dirOther, "Other")
+
+	for _, tc := range []struct {
+		name       string
+		bundle     string
+		binary     string
+		pathList   string
+		wantBundle string
+		wantBinary string
+	}{
+		{"found in the only bundle", "Tool.app", "tool-binary", joinDirs(dirB), bundleB, binaryB},
+		{"found nested in the bundle", "Tool.app", "tool-binary", joinDirs(dirC), bundleC, binaryC},
+
+		// The search continues past bundles that exist but do not contain a
+		// usable binary; it is the first bundle *containing* it that wins, and
+		// the bundle returned is that one, not the first on the path.
+		{"skips bundle without the binary", "Tool.app", "tool-binary", joinDirs(dirNone, dirB), bundleB, binaryB},
+		{"skips bundle with a non-executable match", "Tool.app", "tool-binary", joinDirs(dirNonExec, dirB), bundleB, binaryB},
+		{"skips two unusable bundles", "Tool.app", "tool-binary", joinDirs(dirNone, dirNonExec, dirC), bundleC, binaryC},
+
+		// When several bundles contain the binary, path order decides.
+		{"first match wins", "Tool.app", "tool-binary", joinDirs(dirB, dirC), bundleB, binaryB},
+		{"first match wins, reversed", "Tool.app", "tool-binary", joinDirs(dirC, dirB), bundleC, binaryC},
+		{"duplicate dirs deduped", "Tool.app", "tool-binary", joinDirs(dirB, dirB), bundleB, binaryB},
+
+		{"binary in no bundle", "Tool.app", "no-such-binary", joinDirs(dirNone, dirB, dirC), "", ""},
+		{"bundle not on the path", "Missing.app", "tool-binary", joinDirs(dirB), "", ""},
+		{"empty path list", "Tool.app", "tool-binary", "", "", ""},
+		{"empty binary name", "Tool.app", "", joinDirs(dirB), "", ""},
+
+		// Absolute bundles are used directly and the path list is ignored.
+		{"absolute bundle", bundleB, "tool-binary", joinDirs(dirNone), bundleB, binaryB},
+		{"absolute bundle without the binary", filepath.Join(dirNone, "Tool.app"), "tool-binary", joinDirs(dirB), "", ""},
+		{"absolute non-bundle", filepath.Join(dirOther, "Other"), "tool-binary", joinDirs(dirB), "", ""},
+
+		// Relative bundles must be bare names; anything else is rejected by
+		// LookPathBundleAll before the filesystem is touched.
+		{"path traversal rejected", "../b/Tool.app", "tool-binary", joinDirs(dirB), "", ""},
+		{"nested relative bundle rejected", "b/Tool.app", "tool-binary", joinDirs(tmpDir), "", ""},
+		{"dot rejected", ".", "tool-binary", joinDirs(dirB), "", ""},
+		{"dot dot rejected", "..", "tool-binary", joinDirs(dirB), "", ""},
+	} {
+		gotBundle, gotBinary := macosutils.LookupBundleBinary(tc.bundle, tc.binary, tc.pathList)
+		if gotBundle != tc.wantBundle || gotBinary != tc.wantBinary {
+			t.Errorf("%v: LookupBundleBinary(%q, %q, %q) = %q, %q, want %q, %q",
+				tc.name, tc.bundle, tc.binary, tc.pathList,
+				gotBundle, gotBinary, tc.wantBundle, tc.wantBinary)
+		}
+	}
+}
+
 // The test binary is not itself inside an app bundle, so InAppBundle must
 // report that it is not. The positive case is covered by
 // TestInAppBundleFromBundle below.
