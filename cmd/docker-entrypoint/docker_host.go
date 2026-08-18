@@ -16,7 +16,6 @@ import (
 
 	"cloudeng.io/cmdutil/keys"
 	"cloudeng.io/macos/keychain/plugin"
-	"cloudeng.io/security/keys/keychain/plugins"
 )
 
 type RunFlags struct {
@@ -33,7 +32,10 @@ func (dc dockerCmds) run(ctx context.Context, f any, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to get keychain config from flags: %w", err)
 		}
-		fs := plugins.NewFS(cfg.Binary, false, cfg)
+		fs, err := cfg.FS(false)
+		if err != nil {
+			return fmt.Errorf("failed to create keychain fs: %w", err)
+		}
 		if err := ims.ReadYAML(ctx, fs, fl.KeychainItem); err != nil {
 			return fmt.Errorf("failed to read keychain item %q: %w", fl.KeychainItem, err)
 		}

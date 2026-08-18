@@ -17,11 +17,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"cloudeng.io/cmdutil/flags"
 	"cloudeng.io/logging/ctxlog"
 	"cloudeng.io/macos/keychain"
+	"cloudeng.io/macos/macosutils"
 	"cloudeng.io/security/keys/keychain/plugins"
 )
 
@@ -106,32 +106,6 @@ func LocatePluginBinary(keychainBundle, pluginBundle, pluginBinary string) (stri
 	return path, nil
 }
 
-func locateInBundle(bundlePath, binary string) string {
-	// Confine the walk to the bundle directory: os.Root rejects any path that
-	// leaves it, including via symlinks inside the bundle. This matters because
-	// the binary located here is subsequently executed.
-	root, err := os.OpenRoot(bundlePath)
-	if err != nil {
-		return ""
-	}
-	defer root.Close()
-
-	location := ""
-	_ = fs.WalkDir(root.FS(), ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.Name() == binary {
-			if info, err := d.Info(); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0100 != 0 {
-				location = filepath.Join(bundlePath, path)
-				return fs.SkipAll
-			}
-		}
-		return nil
-	})
-	return location
-}
-
 // LocateKeychainBinaryInAppBundle finds an app bundle by name that contains the specified
 // binary. If appBundle is an absolute path, it is checked directly.
 // Otherwise, /Applications and each directory in $PATH are searched. The
@@ -140,7 +114,7 @@ func locateInBundle(bundlePath, binary string) string {
 // binary are returned. If not found, an error is returned containing exec.ErrNotFound.
 func LocateKeychainBinaryInAppBundle(appBundle, binary string) (string, string, error) {
 	if filepath.IsAbs(appBundle) {
-		if location := locateInBundle(appBundle, binary); location != "" {
+		if location := macosutils.LocateInBundle(appBundle, binary); location != "" {
 			return appBundle, location, nil
 		}
 		return "", "", fmt.Errorf("app bundle %q: executable %q not found: %w", appBundle, binary, exec.ErrNotFound)
@@ -153,23 +127,15 @@ func LocateKeychainBinaryInAppBundle(appBundle, binary string) (string, string, 
 		return "", "", fmt.Errorf("app bundle %q must be a bare bundle name, not a path", appBundle)
 	}
 
-	// dedup $PATH while preserving order, and append /Applications to the search path.
-	searchPath := []string{}
-	all := filepath.SplitList(os.Getenv("PATH"))
-	seen := make(map[string]struct{}, len(all))
-	for _, dir := range all {
-		if _, ok := seen[dir]; !ok {
-			seen[dir] = struct{}{}
-			searchPath = append(searchPath, dir)
-		}
+	var searchPath string
+	if path := os.Getenv("PATH"); len(path) > 0 {
+		searchPath = path + string(os.PathListSeparator) + filepath.Join("/", "Applications")
+	} else {
+		searchPath = filepath.Join("/", "Applications")
 	}
-	searchPath = append(searchPath, filepath.Join("/", "Applications"))
-
-	for _, dir := range searchPath {
-		candidate := filepath.Join(dir, appBundle)
-		if location := locateInBundle(candidate, binary); location != "" {
-			return candidate, location, nil
-		}
+	bundlePath, pluginPath := macosutils.LookupBundleBinary(appBundle, binary, searchPath)
+	if len(bundlePath) > 0 && len(pluginPath) > 0 {
+		return bundlePath, pluginPath, nil
 	}
 
 	return "", "", fmt.Errorf("app bundle %q not found in /Applications or PATH: %w", appBundle, exec.ErrNotFound)
@@ -190,34 +156,7 @@ func BundledPluginApp(pluginBinary string) (string, bool) {
 	if len(pluginBinary) == 0 {
 		pluginBinary = DefaultPluginBinary
 	}
-	exe, err := os.Executable()
-	if err != nil {
-		return "", false
-	}
-	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
-		exe = resolved
-	}
-
-	// Let's see if this binary is an app bundle.
-	macos := filepath.Dir(exe)
-	if !strings.EqualFold(filepath.Base(macos), "macos") {
-		return "", false
-	}
-	contents := filepath.Dir(macos)
-	if !strings.EqualFold(filepath.Base(contents), "contents") {
-		return "", false
-	}
-	appBundle := filepath.Dir(contents)
-
-	// Look for a plugin binary.
-	plugin := locateInBundle(appBundle, pluginBinary)
-	if len(plugin) == 0 {
-		return "", false
-	}
-	if fi, err := os.Stat(plugin); err == nil && fi.Mode().IsRegular() && fi.Mode().Perm()&0100 != 0 {
-		return plugin, true
-	}
-	return "", false
+	return macosutils.InAppBundle(pluginBinary)
 }
 
 // pluginConfig returns a Config based on the KeychainFlags. The account defaults

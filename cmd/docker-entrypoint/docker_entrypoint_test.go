@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"cloudeng.io/macos/keychain/plugin"
+	"cloudeng.io/macos/macosutils"
 	"cloudeng.io/os/executil"
 )
 
@@ -41,10 +42,15 @@ func runCmdNoError(t *testing.T, name string, args ...string) string {
 }
 
 func TestDockerBuildRun(t *testing.T) {
-	t.Skip()
 	ctx := context.Background()
 	if os.Getenv("SKIP_DOCKER_TESTS") != "" {
 		t.Skip("skipping docker tests")
+	}
+	if _, err := exec.LookPath("docker"); err != nil {
+		t.Skip("docker binary not found in PATH")
+	}
+	if err := exec.CommandContext(t.Context(), "docker", "info").Run(); err != nil {
+		t.Skipf("docker daemon not accessible: %v", err)
 	}
 	tmpDir := t.TempDir()
 
@@ -78,17 +84,27 @@ func TestDockerBuildRun(t *testing.T) {
 		t.Fatalf("failed to write keychain data to temp file: %v", err)
 	}
 
-	runCmdNoError(t, "keychain",
-		"write", "--keychain-type=file", "--name="+serviceName, tempFile)
+	var searchPath string
+	if path := os.Getenv("PATH"); len(path) > 0 {
+		searchPath = path + string(os.PathListSeparator) + filepath.Join("/", "Applications")
+	} else {
+		searchPath = filepath.Join("/", "Applications")
+	}
+
+	_, keychainBinary := macosutils.LookupBundleBinary(plugin.DefaultKeyChainAppBundle, "cloudeng-keychain", searchPath)
+	if len(keychainBinary) == 0 {
+		t.Fatalf("failed to locate keychain binary in bundle %s, path: %s", plugin.DefaultKeyChainAppBundle, searchPath)
+	}
+
+	_, pluginBinary := macosutils.LookupBundleBinary(plugin.DefaultKeyChainAppBundle, plugin.DefaultPluginBinary, searchPath)
+	if len(pluginBinary) == 0 {
+		t.Fatalf("failed to locate keychain plugin binary in bundle %s, path: %s", plugin.DefaultKeyChainAppBundle, searchPath)
+	}
+
+	runCmdNoError(t, keychainBinary,
+		"write", "--keychain-type=file", "--keychain-item="+serviceName, tempFile)
 
 	defer func() {
-		pluginBinary, err := plugin.LocatePluginBinary(
-			"",
-			filepath.Join("/", "Applications", "macos-keychain-plugin.app"),
-			"macos-keychain-plugin")
-		if err != nil {
-			t.Fatalf("failed to find plugin binary: %v", err)
-		}
 		out := runCmdNoError(t, pluginBinary,
 			"delete", "file", account, serviceName)
 		t.Log("delete output:", out)

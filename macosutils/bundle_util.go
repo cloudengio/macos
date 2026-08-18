@@ -141,3 +141,16 @@ func LookPathBundleAll(bundle, pathList string) []string {
 	}
 	return found
 }
+
+// LookupBundleBinary iterates over all instances of bundle in pathList to locate
+// the first one that contains binary returning the absolute pathname of the bundle
+// and binary in that bundle or empty strings if not found.
+func LookupBundleBinary(bundle, binary, pathList string) (string, string) {
+	bundlePaths := LookPathBundleAll(bundle, pathList)
+	for _, bundle := range bundlePaths {
+		if bp := LocateInBundle(bundle, binary); len(bp) > 0 {
+			return bundle, bp
+		}
+	}
+	return "", ""
+}

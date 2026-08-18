@@ -43,6 +43,14 @@ func LookPathBundleAll(bundle, pathList string) []string
 LookPathBundleAll is like LookPathBundle but returns all instances of bundle
 on pathList without duplicates.
 
+### Func LookupBundleBinary
+```go
+func LookupBundleBinary(bundle, binary, pathList string) (string, string)
+```
+LookupBundleBinary iterates over all instances of bundle in pathList to
+locate the first one that contains binary returning the absolute pathname of
+the bundle and binary in that bundle or empty strings if not found.
+
 
 
 
