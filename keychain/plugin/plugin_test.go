@@ -322,5 +322,23 @@ func TestReadFlags(t *testing.T) {
 	if _, err := cfg.FS(false); err == nil {
 		t.Fatalf("expected an error for missing plugin binary, got nil")
 	}
+}
 
+func TestLocateKeychainBinaryInAppBundle(t *testing.T) {
+	// 1. Non-bare relative path should return error immediately
+	if _, _, err := plugin.LocateKeychainBinaryInAppBundle("sub/Tool.app", "tool"); err == nil || !strings.Contains(err.Error(), "must be a bare bundle name") {
+		t.Errorf("expected bare bundle name error, got: %v", err)
+	}
+
+	// 2. Absolute bundle path that doesn't exist
+	missingAbs := filepath.Join(t.TempDir(), "Missing.app")
+	if _, _, err := plugin.LocateKeychainBinaryInAppBundle(missingAbs, "tool"); err == nil || !errors.Is(err, exec.ErrNotFound) {
+		t.Errorf("expected exec.ErrNotFound for missing absolute bundle, got: %v", err)
+	}
+
+	// 3. Bare bundle name not found with empty PATH
+	t.Setenv("PATH", "")
+	if _, _, err := plugin.LocateKeychainBinaryInAppBundle("NonExistent.app", "tool"); err == nil || !errors.Is(err, exec.ErrNotFound) {
+		t.Errorf("expected exec.ErrNotFound with empty PATH, got: %v", err)
+	}
 }

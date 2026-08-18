@@ -127,7 +127,12 @@ func LocateKeychainBinaryInAppBundle(appBundle, binary string) (string, string, 
 		return "", "", fmt.Errorf("app bundle %q must be a bare bundle name, not a path", appBundle)
 	}
 
-	searchPath := os.Getenv("PATH") + string(os.PathListSeparator) + filepath.Join("/", "Applications")
+	var searchPath string
+	if path := os.Getenv("PATH"); len(path) > 0 {
+		searchPath = path + string(os.PathListSeparator) + filepath.Join("/", "Applications")
+	} else {
+		searchPath = filepath.Join("/", "Applications")
+	}
 	bundlePath, pluginPath := macosutils.LookupBundleBinary(appBundle, binary, searchPath)
 	if len(bundlePath) > 0 && len(pluginPath) > 0 {
 		return bundlePath, pluginPath, nil

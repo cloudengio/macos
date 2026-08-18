@@ -46,6 +46,12 @@ func TestDockerBuildRun(t *testing.T) {
 	if os.Getenv("SKIP_DOCKER_TESTS") != "" {
 		t.Skip("skipping docker tests")
 	}
+	if _, err := exec.LookPath("docker"); err != nil {
+		t.Skip("docker binary not found in PATH")
+	}
+	if err := exec.CommandContext(t.Context(), "docker", "info").Run(); err != nil {
+		t.Skipf("docker daemon not accessible: %v", err)
+	}
 	tmpDir := t.TempDir()
 
 	// Assumes keychain, macos-keychain-plugin and docker desktop
@@ -78,14 +84,21 @@ func TestDockerBuildRun(t *testing.T) {
 		t.Fatalf("failed to write keychain data to temp file: %v", err)
 	}
 
-	_, keychainBinary := macosutils.LookupBundleBinary(plugin.DefaultKeyChainAppBundle, "cloudeng-keychain", os.Getenv("PATH"))
-	if len(keychainBinary) == 0 {
-		t.Fatalf("failed to locate keychain binary in bundle %s, path: %s", plugin.DefaultKeyChainAppBundle, os.Getenv("PATH"))
+	var searchPath string
+	if path := os.Getenv("PATH"); len(path) > 0 {
+		searchPath = path + string(os.PathListSeparator) + filepath.Join("/", "Applications")
+	} else {
+		searchPath = filepath.Join("/", "Applications")
 	}
 
-	_, pluginBinary := macosutils.LookupBundleBinary(plugin.DefaultKeyChainAppBundle, plugin.DefaultPluginBinary, os.Getenv("PATH"))
+	_, keychainBinary := macosutils.LookupBundleBinary(plugin.DefaultKeyChainAppBundle, "cloudeng-keychain", searchPath)
+	if len(keychainBinary) == 0 {
+		t.Fatalf("failed to locate keychain binary in bundle %s, path: %s", plugin.DefaultKeyChainAppBundle, searchPath)
+	}
+
+	_, pluginBinary := macosutils.LookupBundleBinary(plugin.DefaultKeyChainAppBundle, plugin.DefaultPluginBinary, searchPath)
 	if len(pluginBinary) == 0 {
-		t.Fatalf("failed to locate keychain plugin binary in bundle %s, path: %s", plugin.DefaultKeyChainAppBundle, os.Getenv("PATH"))
+		t.Fatalf("failed to locate keychain plugin binary in bundle %s, path: %s", plugin.DefaultKeyChainAppBundle, searchPath)
 	}
 
 	runCmdNoError(t, keychainBinary,
