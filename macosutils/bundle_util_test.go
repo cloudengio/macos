@@ -73,6 +73,8 @@ func TestIsAppBundle(t *testing.T) {
 		want bool
 	}{
 		{"valid", valid, true},
+		{"trailing slash", valid + "/", true},
+		{"trailing dot", valid + "/.", true},
 		{"uppercase suffix", upper, true},
 		{"no .app suffix", notSuffixed, false},
 		{"no Info.plist", noPlist, false},
@@ -167,6 +169,11 @@ func TestLookPathBundleAll(t *testing.T) {
 		{"found in second dir", "Tool.app", pathList(dirEmpty, dirB), []string{bundleB}},
 		{"found in both, in order", "Tool.app", pathList(dirA, dirB), []string{bundleA, bundleB}},
 		{"duplicate dirs deduped", "Tool.app", pathList(dirA, dirA, dirA), []string{bundleA}},
+		{"trailing slashes in pathList dirs", "Tool.app", pathList(dirA+"/", dirB+"/"), []string{bundleA, bundleB}},
+		{"path traversal rejected", "../../Tool.app", pathList(dirA, dirB), nil},
+		{"nested relative bundle path rejected", "nested/Tool.app", pathList(dirA, dirB), nil},
+		{"dot relative bundle rejected", ".", pathList(dirA, dirB), nil},
+		{"dot dot relative bundle rejected", "..", pathList(dirA, dirB), nil},
 		{"not found", "Missing.app", pathList(dirA, dirB), nil},
 		{"not a bundle", "Other", pathList(dirB), nil},
 		{"empty path list", "Tool.app", "", nil},
