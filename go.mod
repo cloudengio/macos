@@ -3,15 +3,15 @@ module cloudeng.io/macos
 go 1.26.4
 
 require (
-	cloudeng.io/algo v0.0.0-20260819024737-d2ac45baa6ec
-	cloudeng.io/aws v0.0.0-20260819024737-d2ac45baa6ec
+	cloudeng.io/algo v0.0.0-20260819054212-0ff911d6e92e
+	cloudeng.io/aws v0.0.0-20260819054212-0ff911d6e92e
 	cloudeng.io/cicd v0.0.0-20260806150854-f21c21e021b8
-	cloudeng.io/cmdutil v0.0.0-20260819024737-d2ac45baa6ec
+	cloudeng.io/cmdutil v0.0.0-20260819054212-0ff911d6e92e
 	cloudeng.io/errors v0.0.14-0.20260312171538-61fcde6ce278
-	cloudeng.io/file v0.0.0-20260819024737-d2ac45baa6ec
+	cloudeng.io/file v0.0.0-20260819054212-0ff911d6e92e
 	cloudeng.io/linux v0.0.0-20251206055912-df09039c8e99
-	cloudeng.io/logging v0.0.0-20260819024737-d2ac45baa6ec
-	cloudeng.io/os v0.0.0-20260819024737-d2ac45baa6ec
+	cloudeng.io/logging v0.0.0-20260819054212-0ff911d6e92e
+	cloudeng.io/os v0.0.0-20260819054212-0ff911d6e92e
 	cloudeng.io/security v0.0.0-20260819054212-0ff911d6e92e
 	cloudeng.io/text v0.0.16-0.20260624171915-da98fe9dec2b
 	cloudeng.io/vms v0.0.0-20260819054212-0ff911d6e92e
@@ -24,7 +24,7 @@ require (
 
 require (
 	cloudeng.io/sync v0.0.12-0.20260804222138-e9281ed260ba // indirect
-	cloudeng.io/sys v0.0.0-20260819024737-d2ac45baa6ec // indirect
+	cloudeng.io/sys v0.0.0-20260819054212-0ff911d6e92e // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.43.6 // indirect
