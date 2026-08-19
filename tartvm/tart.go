@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"cloudeng.io/algo/ratecontrol"
 	"cloudeng.io/errors"
 	"cloudeng.io/logging/ctxlog"
 	"cloudeng.io/os/executil"
@@ -51,11 +52,11 @@ type Instance struct {
 
 // Config contains configuration for tart VM pools.
 type Config struct {
-	OS               string        `yaml:"os" doc:"the operating system of the tart VM, either 'macos' or 'linux'"`
-	PollingInterval  time.Duration `yaml:"polling_interval" doc:"The interval to use for polling the state of the VM when waiting for state transitions, network availability, etc."`
-	RunTimeout       time.Duration `yaml:"run_timeout" doc:"A timeout for the VM to reach a running state after Start is called."`
-	ForceStopTimeout time.Duration `yaml:"force_stop_timeout" doc:"A timeout for forcefully stopping a VM when a run operation, or other operation, fails and the error recovery needs to stop the VM."`
-	RunOptions       []string      `yaml:"run_options,flow" doc:"Additional options to pass to the tart run command."`
+	OS               string                               `yaml:"os" doc:"The operating system of the tart VM, either 'macos' or 'linux'"`
+	StateBackoff     ratecontrol.ExponentialBackoffConfig `yaml:"state_backoff" doc:"The backoff to use when polling the state of the VM when waiting for state transitions, network availability, etc."`
+	RunBackoff       ratecontrol.ExponentialBackoffConfig `yaml:"run_backoff" doc:"The backoff bounding how long to wait for the VM to reach a running state after Start is called."`
+	ForceStopBackoff ratecontrol.ExponentialBackoffConfig `yaml:"force_stop_backoff" doc:"The backoff bounding forcefully stopping a VM when a run operation, or other operation, fails and the error recovery needs to stop the VM."`
+	RunOptions       []string                             `yaml:"run_options,flow" doc:"Additional options to pass to the tart run command."`
 }
 
 func (c *Config) Options() []Option {
@@ -71,9 +72,9 @@ func (c *Config) Options() []Option {
 		}
 	}
 	return []Option{
-		WithPollingInterval(c.PollingInterval),
-		WithRunTimeout(c.RunTimeout),
-		WithForceStopTimeout(c.ForceStopTimeout),
+		WithStateBackoff(c.StateBackoff),
+		WithRunBackoff(c.RunBackoff),
+		WithForceStopBackoff(c.ForceStopBackoff),
 		WithRunOptions(runOpts...),
 	}
 }
@@ -82,36 +83,38 @@ func (c *Config) Options() []Option {
 type Option func(o *options)
 
 type options struct {
-	pollingInterval  time.Duration
+	stateBackoff     ratecontrol.ExponentialBackoffConfig
 	outputBufSize    int
-	runTimeout       time.Duration
-	forceStopTimeout time.Duration
+	runBackoff       ratecontrol.ExponentialBackoffConfig
+	forceStopBackoff ratecontrol.ExponentialBackoffConfig
 	runOptions       []string
 	logger           *slog.Logger
 	ipAtStart        bool
 }
 
-// WithPollingInterval sets the interval to use for polling the
-// state of the VM when waiting for state transitions, network availability, etc.
+// WithStateBackoff sets the backoff to use when polling the state of the VM
+// when waiting for state transitions, network availability, etc.
 //
-//	The default is DefaultPollingInterval.
-func WithPollingInterval(interval time.Duration) Option {
+//	The default is DefaultStateBackoff().
+func WithStateBackoff(cfg ratecontrol.ExponentialBackoffConfig) Option {
 	return func(o *options) {
-		if interval <= 0 {
-			interval = DefaultPollingInterval
+		if cfg.InitialDelay <= 0 || cfg.Steps <= 0 {
+			cfg = DefaultStateBackoff()
 		}
-		o.pollingInterval = interval
+		o.stateBackoff = cfg
 	}
 }
 
-// WithRunTimeout sets a timeout for the VM to reach a running state after Start is called.
-// The default is DefaultRunTimeout.
-func WithRunTimeout(timeout time.Duration) Option {
+// WithRunBackoff sets the backoff bounding how long to wait for the VM to
+// reach a running state after Start is called; its total delay budget also
+// bounds obtaining the VM's IP address and the readiness check.
+// The default is DefaultRunBackoff().
+func WithRunBackoff(cfg ratecontrol.ExponentialBackoffConfig) Option {
 	return func(o *options) {
-		if timeout <= 0 {
-			timeout = DefaultRunTimeout
+		if cfg.InitialDelay <= 0 || cfg.Steps <= 0 {
+			cfg = DefaultRunBackoff()
 		}
-		o.runTimeout = timeout
+		o.runBackoff = cfg
 	}
 }
 
@@ -125,15 +128,17 @@ func WithRunOptions(opts ...string) Option {
 	}
 }
 
-// WithForceStopTimeout sets the timeout for forcefully stopping a VM when
+// WithForceStopBackoff sets the backoff bounding forcefully stopping a VM when
 // a run operation, or other operation, fails and the error recovery needs to
-// stop the VM.
-func WithForceStopTimeout(timeout time.Duration) Option {
+// stop the VM; its total delay budget is used as the graceful shutdown timeout
+// passed to "tart stop --timeout".
+// The default is DefaultForceStopBackoff().
+func WithForceStopBackoff(cfg ratecontrol.ExponentialBackoffConfig) Option {
 	return func(o *options) {
-		if timeout <= 0 {
-			timeout = DefaultForceStopTimeout
+		if cfg.InitialDelay <= 0 || cfg.Steps <= 0 {
+			cfg = DefaultForceStopBackoff()
 		}
-		o.forceStopTimeout = timeout
+		o.forceStopBackoff = cfg
 	}
 }
 
@@ -153,11 +158,41 @@ func WithObtainIPAtStart(ipAtStart bool) Option {
 }
 
 const (
-	DefaultPollingInterval  = 100 * time.Millisecond
 	DefaultOutputBufferSize = 16 * 1024 // 16KiB
-	DefaultRunTimeout       = 2 * time.Minute
-	DefaultForceStopTimeout = 10 * time.Second
 )
+
+// DefaultStateBackoff returns the default backoff used when polling the state
+// of the VM: 100ms initial delay doubling over 10 steps, for a total delay
+// budget of ~102 seconds.
+func DefaultStateBackoff() ratecontrol.ExponentialBackoffConfig {
+	return ratecontrol.ExponentialBackoffConfig{InitialDelay: 100 * time.Millisecond, Steps: 10}
+}
+
+// DefaultRunBackoff returns the default backoff bounding how long to wait for
+// the VM to reach a running state after Start: 1s initial delay doubling over
+// 7 steps, for a total delay budget of ~127 seconds.
+func DefaultRunBackoff() ratecontrol.ExponentialBackoffConfig {
+	return ratecontrol.ExponentialBackoffConfig{InitialDelay: time.Second, Steps: 7}
+}
+
+// DefaultForceStopBackoff returns the default backoff bounding forcefully
+// stopping a VM during error recovery: 500ms initial delay doubling over
+// 5 steps, for a total delay budget of ~15 seconds.
+func DefaultForceStopBackoff() ratecontrol.ExponentialBackoffConfig {
+	return ratecontrol.ExponentialBackoffConfig{InitialDelay: 500 * time.Millisecond, Steps: 5}
+}
+
+// backoffBudget returns the total delay the backoff described by cfg can
+// wait across all of its steps, for use as a wall-clock bound on operations
+// that take a timeout rather than a backoff.
+func backoffBudget(cfg ratecontrol.ExponentialBackoffConfig) time.Duration {
+	total, delay := time.Duration(0), cfg.InitialDelay
+	for i := 0; i < cfg.Steps; i++ {
+		total += delay
+		delay *= 2
+	}
+	return total
+}
 
 // DefaultRunOptions are safe defaults that work with mac and linux tart VMs.
 // Linux does not currently support suspend.
@@ -177,9 +212,9 @@ func DefaultLinuxRunOptions() []string {
 // reference to clone from; name is the local VM name.
 func New(ctx context.Context, source, name string, opts ...Option) *Instance {
 	options := options{
-		pollingInterval:  DefaultPollingInterval,
-		runTimeout:       DefaultRunTimeout,
-		forceStopTimeout: DefaultForceStopTimeout,
+		stateBackoff:     DefaultStateBackoff(),
+		runBackoff:       DefaultRunBackoff(),
+		forceStopBackoff: DefaultForceStopBackoff(),
 		outputBufSize:    DefaultOutputBufferSize,
 	}
 	for _, opt := range opts {
@@ -230,7 +265,7 @@ func (inst *Instance) needIP() (string, bool) {
 func (inst *Instance) getIP(ctx context.Context) (string, error) {
 	ip, needIP := inst.needIP()
 	if needIP {
-		runCtx, cancel := context.WithTimeout(ctx, inst.opts.runTimeout)
+		runCtx, cancel := context.WithTimeout(ctx, backoffBudget(inst.opts.runBackoff))
 		defer cancel()
 		fetched, err := inst.runIPWait(runCtx)
 		if err != nil {
@@ -361,25 +396,23 @@ func (inst *Instance) Start(ctx context.Context, stdout, stderr io.Writer) error
 	}
 	inst.logger.Info("tart run cmd.Start called", "args", args, "pid", cmd.Process.Pid)
 
-	runCtx, cancel := context.WithTimeout(ctx, inst.opts.runTimeout)
-	defer cancel()
-	if err := inst.waitForTartState(runCtx, "running", inst.opts.pollingInterval); err != nil {
-		return inst.runFailed(runCtx, prev, cmd,
-			fmt.Errorf("tart %s: %w: failed to reach tart 'running' state after timeout", strings.Join(args, " "), err))
+	if err := inst.waitForTartState(ctx, "running", inst.opts.runBackoff); err != nil {
+		return inst.runFailed(ctx, prev, cmd,
+			fmt.Errorf("tart %s: %w: failed to reach tart 'running' state before the run backoff was exhausted", strings.Join(args, " "), err))
 	}
 
 	var ip string
 	if inst.opts.ipAtStart {
 		var err error
-		ip, err = inst.runIPWait(runCtx)
+		ip, err = inst.runIPWait(ctx)
 		if err != nil || ip == "" {
-			return inst.runFailed(runCtx, prev, cmd,
+			return inst.runFailed(ctx, prev, cmd,
 				fmt.Errorf("tart %s: %w: failed to get IP address", strings.Join(args, " "), err))
 		}
 	}
 
-	if err := inst.waitForReadyUsingExec(runCtx); err != nil {
-		return inst.runFailed(runCtx, prev, cmd,
+	if err := inst.waitForReadyUsingExec(ctx); err != nil {
+		return inst.runFailed(ctx, prev, cmd,
 			fmt.Errorf("tart %s: %w: failed to run tart exec", strings.Join(args, " "), err))
 	}
 
@@ -393,7 +426,8 @@ func (inst *Instance) Start(ctx context.Context, stdout, stderr io.Writer) error
 	return nil
 }
 
-func (inst *Instance) runForceStop(ctx context.Context, timeout time.Duration) error {
+func (inst *Instance) runForceStop(ctx context.Context) error {
+	timeout := backoffBudget(inst.opts.forceStopBackoff)
 	out, err := exec.CommandContext(ctx, "tart", "stop", inst.name, "--timeout", strconv.Itoa(int(timeout.Seconds()))).CombinedOutput() //nolint:gosec // G204 false positive
 	if err != nil {
 		if isAlreadyStoppedErrorMsg(string(out)) {
@@ -406,7 +440,7 @@ func (inst *Instance) runForceStop(ctx context.Context, timeout time.Duration) e
 
 // opMutex must be held by the caller.
 func (inst *Instance) cmdStartFailed(ctx context.Context, prevState vms.State, prevErr error) error {
-	if err := inst.waitForTartState(ctx, "stopped", inst.opts.pollingInterval); err != nil {
+	if err := inst.waitForTartState(ctx, "stopped", inst.opts.forceStopBackoff); err != nil {
 		var errs errors.M
 		errs.Append(prevErr)
 		errs.Append(err)
@@ -423,13 +457,13 @@ func (inst *Instance) cmdStartFailed(ctx context.Context, prevState vms.State, p
 func (inst *Instance) runFailed(ctx context.Context, prevState vms.State, cmd *exec.Cmd, prevErr error) error {
 	var errs errors.M
 	errs.Append(prevErr)
-	err := inst.runForceStop(ctx, inst.opts.forceStopTimeout)
+	err := inst.runForceStop(ctx)
 	errs.Append(err)
 
 	if err := cmd.Wait(); err != nil {
 		errs.Append(err)
 	}
-	if err := inst.waitForTartState(ctx, "stopped", inst.opts.pollingInterval); err != nil {
+	if err := inst.waitForTartState(ctx, "stopped", inst.opts.forceStopBackoff); err != nil {
 		errs.Append(err)
 		inst.setState(vms.StateErrorUnknown)
 		inst.logger.Error("tart run failure: revert to StateErrorUnknown", "error", errs.Err())
@@ -447,7 +481,7 @@ func (inst *Instance) clearIP() {
 }
 
 func (inst *Instance) verifyState(ctx context.Context, state string) bool {
-	return inst.waitForTartState(ctx, state, inst.opts.pollingInterval) == nil
+	return inst.waitForTartState(ctx, state, inst.opts.stateBackoff) == nil
 }
 
 func (inst *Instance) handleStopSuspend(ctx context.Context, args ...string) (runErr, stopErr error) {
@@ -581,10 +615,11 @@ func (inst *Instance) Exec(ctx context.Context, stdout, stderr io.Writer, cmd st
 }
 
 func (inst *Instance) waitForReadyUsingExec(ctx context.Context) error {
+	timeout := backoffBudget(inst.opts.runBackoff)
 	found := func(ctx context.Context) (bool, error) {
-		return waitForReadyUsingExecOne(ctx, inst.logger, inst.name, inst.opts.runTimeout)
+		return waitForReadyUsingExecOne(ctx, inst.logger, inst.name, timeout)
 	}
-	return executil.WaitFor(ctx, inst.opts.pollingInterval, found)
+	return executil.WaitForBackoff(ctx, inst.opts.runBackoff.NewBackoff(), found)
 }
 
 func waitForReadyUsingExecOne(ctx context.Context, logger *slog.Logger, name string, timeout time.Duration) (bool, error) {
@@ -609,11 +644,12 @@ func waitForReadyUsingExecOne(ctx context.Context, logger *slog.Logger, name str
 }
 
 func (inst *Instance) runIPWait(ctx context.Context) (string, error) {
-	args := []string{"ip", inst.name, "--wait", strconv.Itoa(int(inst.opts.runTimeout.Seconds()))}
+	timeout := backoffBudget(inst.opts.runBackoff)
+	args := []string{"ip", inst.name, "--wait", strconv.Itoa(int(timeout.Seconds()))}
 	cmd := exec.CommandContext(ctx, "tart", args...)
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("tart %s: (timeout: %v): %w", strings.Join(args, " "), inst.opts.runTimeout, err)
+		return "", fmt.Errorf("tart %s: (timeout: %v): %w", strings.Join(args, " "), timeout, err)
 	}
 	return strings.TrimSpace(string(out)), nil
 }
@@ -630,11 +666,11 @@ func getStateUsingList(ctx context.Context, name, state string) (bool, error) {
 	return entry.State == state, nil
 }
 
-func (inst *Instance) waitForTartState(ctx context.Context, state string, interval time.Duration) error {
+func (inst *Instance) waitForTartState(ctx context.Context, state string, cfg ratecontrol.ExponentialBackoffConfig) error {
 	found := func(ctx context.Context) (bool, error) {
 		return getStateUsingList(ctx, inst.name, state)
 	}
-	return executil.WaitFor(ctx, interval, found)
+	return executil.WaitForBackoff(ctx, cfg.NewBackoff(), found)
 }
 
 type CloneInfo struct {

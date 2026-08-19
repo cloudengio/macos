@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"cloudeng.io/algo/ratecontrol"
 	"cloudeng.io/cicd"
 	tartvm "cloudeng.io/macos/tartvm"
 	"cloudeng.io/os/executil"
@@ -123,7 +124,8 @@ func tartRequireState(ctx context.Context, inst vms.Instance, msg string, final 
 
 	ctx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
-	if err := vms.WaitForState(ctx, inst, time.Millisecond, final, intermediate...); err != nil {
+	backoff := ratecontrol.NewExponentialBackoff(time.Millisecond, 20)
+	if err := vms.WaitForState(ctx, inst, backoff, final, intermediate...); err != nil {
 		return fmt.Errorf("++: %s: waiting for VMS state %v: %v", msg, final, err)
 	}
 	if final == vms.StateInitial {

@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"cloudeng.io/algo/ratecontrol"
 	"cloudeng.io/vms"
 )
 
@@ -18,7 +19,7 @@ func runningInstance(t *testing.T) *Instance {
 	t.Helper()
 	inst := New(t.Context(), "test-source", "test-vm",
 		WithObtainIPAtStart(false),
-		WithRunTimeout(2*time.Second))
+		WithRunBackoff(ratecontrol.ExponentialBackoffConfig{InitialDelay: 2 * time.Second, Steps: 1}))
 	inst.setState(vms.StateRunning)
 	return inst
 }
@@ -127,7 +128,7 @@ func TestGetIPNotFetched(t *testing.T) {
 			invocations := fakeTart(t, "192.168.64.5", "", 0)
 			inst := New(t.Context(), "test-source", "test-vm",
 				WithObtainIPAtStart(tc.ipAtStart),
-				WithRunTimeout(2*time.Second))
+				WithRunBackoff(ratecontrol.ExponentialBackoffConfig{InitialDelay: 2 * time.Second, Steps: 1}))
 			inst.setState(tc.state)
 			inst.currentIP = tc.currentIP
 
