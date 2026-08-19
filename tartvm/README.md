@@ -8,19 +8,24 @@ Package tartvm implements cloudeng.io/vms.Instance using the tart CLI on
 macOS.
 
 ## Constants
-### DefaultPollingInterval, DefaultOutputBufferSize, DefaultRunTimeout, DefaultForceStopTimeout
+### DefaultOutputBufferSize
 ```go
-DefaultPollingInterval = 100 * time.Millisecond
 DefaultOutputBufferSize = 16 * 1024 // 16KiB
 
-DefaultRunTimeout = 2 * time.Minute
-DefaultForceStopTimeout = 10 * time.Second
 
 ```
 
 
 
 ## Functions
+### Func DefaultForceStopBackoff
+```go
+func DefaultForceStopBackoff() ratecontrol.ExponentialBackoffConfig
+```
+DefaultForceStopBackoff returns the default backoff bounding forcefully
+stopping a VM during error recovery: 500ms initial delay doubling over 5
+steps, for a total delay budget of ~15 seconds.
+
 ### Func DefaultLinuxRunOptions
 ```go
 func DefaultLinuxRunOptions() []string
@@ -31,12 +36,28 @@ func DefaultLinuxRunOptions() []string
 func DefaultMacOSRunOptions() []string
 ```
 
+### Func DefaultRunBackoff
+```go
+func DefaultRunBackoff() ratecontrol.ExponentialBackoffConfig
+```
+DefaultRunBackoff returns the default backoff bounding how long to wait for
+the VM to reach a running state after Start: 1s initial delay doubling over
+7 steps, for a total delay budget of ~127 seconds.
+
 ### Func DefaultRunOptions
 ```go
 func DefaultRunOptions() []string
 ```
 DefaultRunOptions are safe defaults that work with mac and linux tart VMs.
 Linux does not currently support suspend.
+
+### Func DefaultStateBackoff
+```go
+func DefaultStateBackoff() ratecontrol.ExponentialBackoffConfig
+```
+DefaultStateBackoff returns the default backoff used when polling the state
+of the VM: 100ms initial delay doubling over 10 steps, for a total delay
+budget of ~102 seconds.
 
 
 
@@ -61,11 +82,11 @@ func (c CloneInfo) String() string
 ### Type Config
 ```go
 type Config struct {
-	OS               string        `yaml:"os" doc:"the operating system of the tart VM, either 'macos' or 'linux'"`
-	PollingInterval  time.Duration `yaml:"polling_interval" doc:"The interval to use for polling the state of the VM when waiting for state transitions, network availability, etc."`
-	RunTimeout       time.Duration `yaml:"run_timeout" doc:"A timeout for the VM to reach a running state after Start is called."`
-	ForceStopTimeout time.Duration `yaml:"force_stop_timeout" doc:"A timeout for forcefully stopping a VM when a run operation, or other operation, fails and the error recovery needs to stop the VM."`
-	RunOptions       []string      `yaml:"run_options,flow" doc:"Additional options to pass to the tart run command."`
+	OS               string                               `yaml:"os" doc:"The operating system of the tart VM, either 'macos' or 'linux'"`
+	StateBackoff     ratecontrol.ExponentialBackoffConfig `yaml:"state_backoff" doc:"The backoff to use when polling the state of the VM when waiting for state transitions, network availability, etc."`
+	RunBackoff       ratecontrol.ExponentialBackoffConfig `yaml:"run_backoff" doc:"The backoff bounding how long to wait for the VM to reach a running state after Start is called."`
+	ForceStopBackoff ratecontrol.ExponentialBackoffConfig `yaml:"force_stop_backoff" doc:"The backoff bounding forcefully stopping a VM when a run operation, or other operation, fails and the error recovery needs to stop the VM."`
+	RunOptions       []string                             `yaml:"run_options,flow" doc:"Additional options to pass to the tart run command."`
 }
 ```
 Config contains configuration for tart VM pools.
@@ -248,11 +269,12 @@ Option represents an Option to New.
 ### Functions
 
 ```go
-func WithForceStopTimeout(timeout time.Duration) Option
+func WithForceStopBackoff(cfg ratecontrol.ExponentialBackoffConfig) Option
 ```
-WithForceStopTimeout sets the timeout for forcefully stopping a VM when a
-run operation, or other operation, fails and the error recovery needs to
-stop the VM.
+WithForceStopBackoff sets the backoff bounding forcefully stopping a VM when
+a run operation, or other operation, fails and the error recovery needs to
+stop the VM; its total delay budget is used as the graceful shutdown timeout
+passed to "tart stop --timeout". The default is DefaultForceStopBackoff().
 
 
 ```go
@@ -271,12 +293,12 @@ on demand.
 
 
 ```go
-func WithPollingInterval(interval time.Duration) Option
+func WithRunBackoff(cfg ratecontrol.ExponentialBackoffConfig) Option
 ```
-WithPollingInterval sets the interval to use for polling the state of the VM
-when waiting for state transitions, network availability, etc.
-
-    The default is DefaultPollingInterval.
+WithRunBackoff sets the backoff bounding how long to wait for the VM to
+reach a running state after Start is called; its total delay budget also
+bounds obtaining the VM's IP address and the readiness check. The default is
+DefaultRunBackoff().
 
 
 ```go
@@ -287,10 +309,12 @@ The default is the value returned by DefaultRunOptions.
 
 
 ```go
-func WithRunTimeout(timeout time.Duration) Option
+func WithStateBackoff(cfg ratecontrol.ExponentialBackoffConfig) Option
 ```
-WithRunTimeout sets a timeout for the VM to reach a running state after
-Start is called. The default is DefaultRunTimeout.
+WithStateBackoff sets the backoff to use when polling the state of the VM
+when waiting for state transitions, network availability, etc.
+
+    The default is DefaultStateBackoff().
 
 
 

@@ -159,6 +159,7 @@ func WithObtainIPAtStart(ipAtStart bool) Option {
 
 const (
 	DefaultOutputBufferSize = 16 * 1024 // 16KiB
+	gracePeriod             = 5 * time.Second
 )
 
 // DefaultStateBackoff returns the default backoff used when polling the state
@@ -182,16 +183,11 @@ func DefaultForceStopBackoff() ratecontrol.ExponentialBackoffConfig {
 	return ratecontrol.ExponentialBackoffConfig{InitialDelay: 500 * time.Millisecond, Steps: 5}
 }
 
-// backoffBudget returns the total delay the backoff described by cfg can
-// wait across all of its steps, for use as a wall-clock bound on operations
-// that take a timeout rather than a backoff.
-func backoffBudget(cfg ratecontrol.ExponentialBackoffConfig) time.Duration {
-	total, delay := time.Duration(0), cfg.InitialDelay
-	for i := 0; i < cfg.Steps; i++ {
-		total += delay
-		delay *= 2
+func durationSeconds(d time.Duration) int {
+	if d <= 0 {
+		return 0
 	}
-	return total
+	return int((d + time.Second - 1) / time.Second)
 }
 
 // DefaultRunOptions are safe defaults that work with mac and linux tart VMs.
@@ -265,7 +261,7 @@ func (inst *Instance) needIP() (string, bool) {
 func (inst *Instance) getIP(ctx context.Context) (string, error) {
 	ip, needIP := inst.needIP()
 	if needIP {
-		runCtx, cancel := context.WithTimeout(ctx, backoffBudget(inst.opts.runBackoff))
+		runCtx, cancel := context.WithTimeout(ctx, inst.opts.runBackoff.TotalTimeout()+gracePeriod)
 		defer cancel()
 		fetched, err := inst.runIPWait(runCtx)
 		if err != nil {
@@ -396,7 +392,8 @@ func (inst *Instance) Start(ctx context.Context, stdout, stderr io.Writer) error
 	}
 	inst.logger.Info("tart run cmd.Start called", "args", args, "pid", cmd.Process.Pid)
 
-	if err := inst.waitForTartState(ctx, "running", inst.opts.runBackoff); err != nil {
+	runBackoff := inst.opts.runBackoff.NewBackoff()
+	if err := inst.waitForTartState(ctx, "running", runBackoff); err != nil {
 		return inst.runFailed(ctx, prev, cmd,
 			fmt.Errorf("tart %s: %w: failed to reach tart 'running' state before the run backoff was exhausted", strings.Join(args, " "), err))
 	}
@@ -411,7 +408,7 @@ func (inst *Instance) Start(ctx context.Context, stdout, stderr io.Writer) error
 		}
 	}
 
-	if err := inst.waitForReadyUsingExec(ctx); err != nil {
+	if err := inst.waitForReadyUsingExec(ctx, runBackoff); err != nil {
 		return inst.runFailed(ctx, prev, cmd,
 			fmt.Errorf("tart %s: %w: failed to run tart exec", strings.Join(args, " "), err))
 	}
@@ -427,8 +424,11 @@ func (inst *Instance) Start(ctx context.Context, stdout, stderr io.Writer) error
 }
 
 func (inst *Instance) runForceStop(ctx context.Context) error {
-	timeout := backoffBudget(inst.opts.forceStopBackoff)
-	out, err := exec.CommandContext(ctx, "tart", "stop", inst.name, "--timeout", strconv.Itoa(int(timeout.Seconds()))).CombinedOutput() //nolint:gosec // G204 false positive
+	if ctx.Err() != nil {
+		ctx = context.WithoutCancel(ctx)
+	}
+	timeout := inst.opts.forceStopBackoff.TotalTimeout()
+	out, err := exec.CommandContext(ctx, "tart", "stop", inst.name, "--timeout", strconv.Itoa(durationSeconds(timeout))).CombinedOutput() //nolint:gosec // G204 false positive
 	if err != nil {
 		if isAlreadyStoppedErrorMsg(string(out)) {
 			return nil
@@ -440,7 +440,10 @@ func (inst *Instance) runForceStop(ctx context.Context) error {
 
 // opMutex must be held by the caller.
 func (inst *Instance) cmdStartFailed(ctx context.Context, prevState vms.State, prevErr error) error {
-	if err := inst.waitForTartState(ctx, "stopped", inst.opts.forceStopBackoff); err != nil {
+	if ctx.Err() != nil {
+		ctx = context.WithoutCancel(ctx)
+	}
+	if err := inst.waitForTartState(ctx, "stopped", inst.opts.forceStopBackoff.NewBackoff()); err != nil {
 		var errs errors.M
 		errs.Append(prevErr)
 		errs.Append(err)
@@ -455,6 +458,9 @@ func (inst *Instance) cmdStartFailed(ctx context.Context, prevState vms.State, p
 
 // opMutex must be held by the caller.
 func (inst *Instance) runFailed(ctx context.Context, prevState vms.State, cmd *exec.Cmd, prevErr error) error {
+	if ctx.Err() != nil {
+		ctx = context.WithoutCancel(ctx)
+	}
 	var errs errors.M
 	errs.Append(prevErr)
 	err := inst.runForceStop(ctx)
@@ -463,7 +469,7 @@ func (inst *Instance) runFailed(ctx context.Context, prevState vms.State, cmd *e
 	if err := cmd.Wait(); err != nil {
 		errs.Append(err)
 	}
-	if err := inst.waitForTartState(ctx, "stopped", inst.opts.forceStopBackoff); err != nil {
+	if err := inst.waitForTartState(ctx, "stopped", inst.opts.forceStopBackoff.NewBackoff()); err != nil {
 		errs.Append(err)
 		inst.setState(vms.StateErrorUnknown)
 		inst.logger.Error("tart run failure: revert to StateErrorUnknown", "error", errs.Err())
@@ -481,7 +487,10 @@ func (inst *Instance) clearIP() {
 }
 
 func (inst *Instance) verifyState(ctx context.Context, state string) bool {
-	return inst.waitForTartState(ctx, state, inst.opts.stateBackoff) == nil
+	if ctx.Err() != nil {
+		ctx = context.WithoutCancel(ctx)
+	}
+	return inst.waitForTartState(ctx, state, inst.opts.stateBackoff.NewBackoff()) == nil
 }
 
 func (inst *Instance) handleStopSuspend(ctx context.Context, args ...string) (runErr, stopErr error) {
@@ -548,7 +557,7 @@ func (inst *Instance) runSyncExclusiveStopSuspend(ctx context.Context, action vm
 func (inst *Instance) Stop(ctx context.Context, timeout time.Duration) (runErr, stopErr error) {
 	args := []string{"stop", inst.name}
 	if timeout > 0 {
-		args = append(args, "--timeout", strconv.Itoa(int(timeout.Seconds())))
+		args = append(args, "--timeout", strconv.Itoa(durationSeconds(timeout)))
 	}
 	inst.opMutex.Lock()
 	defer inst.opMutex.Unlock()
@@ -614,14 +623,19 @@ func (inst *Instance) Exec(ctx context.Context, stdout, stderr io.Writer, cmd st
 	return nil
 }
 
-func (inst *Instance) waitForReadyUsingExec(ctx context.Context) error {
-	timeout := backoffBudget(inst.opts.runBackoff)
+// waitForReadyUsingExec polls tart exec until the VM responds with the expected
+// echo output. Each individual exec attempt is allocated a timeout equal to the
+// total run backoff budget (TotalTimeout), allowing slow-starting guest agents
+// sufficient time to respond during boot before being retried according to the backoff schedule.
+func (inst *Instance) waitForReadyUsingExec(ctx context.Context, backoff ratecontrol.Backoff) error {
+	timeout := inst.opts.runBackoff.TotalTimeout()
 	found := func(ctx context.Context) (bool, error) {
 		return waitForReadyUsingExecOne(ctx, inst.logger, inst.name, timeout)
 	}
-	return executil.WaitForBackoff(ctx, inst.opts.runBackoff.NewBackoff(), found)
+	return executil.WaitForBackoff(ctx, backoff, found)
 }
 
+// waitForReadyUsingExecOne performs a single tart exec attempt with the specified timeout.
 func waitForReadyUsingExecOne(ctx context.Context, logger *slog.Logger, name string, timeout time.Duration) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
@@ -644,8 +658,8 @@ func waitForReadyUsingExecOne(ctx context.Context, logger *slog.Logger, name str
 }
 
 func (inst *Instance) runIPWait(ctx context.Context) (string, error) {
-	timeout := backoffBudget(inst.opts.runBackoff)
-	args := []string{"ip", inst.name, "--wait", strconv.Itoa(int(timeout.Seconds()))}
+	timeout := inst.opts.runBackoff.TotalTimeout()
+	args := []string{"ip", inst.name, "--wait", strconv.Itoa(durationSeconds(timeout))}
 	cmd := exec.CommandContext(ctx, "tart", args...)
 	out, err := cmd.Output()
 	if err != nil {
@@ -657,20 +671,20 @@ func (inst *Instance) runIPWait(ctx context.Context) (string, error) {
 func getStateUsingList(ctx context.Context, name, state string) (bool, error) {
 	all, err := ListAll(ctx)
 	if err != nil {
-		return true, fmt.Errorf("failed to list tart VMs: %w", err)
+		return false, fmt.Errorf("failed to list tart VMs: %w", err)
 	}
 	entry, found := all.Lookup(name)
 	if !found {
-		return true, fmt.Errorf("tart list: VM %q not found", name)
+		return false, fmt.Errorf("tart list: VM %q not found", name)
 	}
 	return entry.State == state, nil
 }
 
-func (inst *Instance) waitForTartState(ctx context.Context, state string, cfg ratecontrol.ExponentialBackoffConfig) error {
+func (inst *Instance) waitForTartState(ctx context.Context, state string, backoff ratecontrol.Backoff) error {
 	found := func(ctx context.Context) (bool, error) {
 		return getStateUsingList(ctx, inst.name, state)
 	}
-	return executil.WaitForBackoff(ctx, cfg.NewBackoff(), found)
+	return executil.WaitForBackoff(ctx, backoff, found)
 }
 
 type CloneInfo struct {
