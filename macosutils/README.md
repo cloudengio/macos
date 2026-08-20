@@ -7,10 +7,11 @@ import cloudeng.io/macos/macosutils
 Package macosutils contains macos specific utilities.
 
 ## Variables
-### ErrFailedToLaunch, ErrLaunchedAppFailed
+### ErrFailedToLaunch, ErrLaunchedAppFailed, ErrAlreadyLaunched
 ```go
 ErrFailedToLaunch = errors.New("failed to launch application")
 ErrLaunchedAppFailed = errors.New("launched application failed")
+ErrAlreadyLaunched = errors.New("application already launched")
 
 ```
 
@@ -118,7 +119,7 @@ NewLauncher creates a new Launcher with the provided options.
 ```go
 func (l *Launcher) LaunchApp(cmd string, args ...string) error
 ```
-LaunceApp launches a long-running application and waits for it to exit.
+LaunchApp launches a long-running application and waits for it to exit.
 Use TerminateLaunchedApp to signal the application to exit. Interrupt and
 terminate signals are forwarded to the launched application.
 
@@ -132,7 +133,7 @@ to configure or setup the application.
 
 
 ```go
-func (l *Launcher) TerminateLaunchedApp()
+func (l *Launcher) TerminateLaunchedApp() bool
 ```
 
 
