@@ -117,7 +117,7 @@ NewLauncher creates a new Launcher with the provided options.
 ### Methods
 
 ```go
-func (l *Launcher) LaunchApp(cmd string, args ...string) error
+func (l *Launcher) LaunchApp(ctx context.Context, cmd string, args ...string) error
 ```
 LaunchApp launches a long-running application and waits for it to exit.
 Use TerminateLaunchedApp to signal the application to exit. Interrupt and
@@ -125,7 +125,7 @@ terminate signals are forwarded to the launched application.
 
 
 ```go
-func (l *Launcher) RunApp(cmd string, args ...string) (string, error)
+func (l *Launcher) RunApp(ctx context.Context, cmd string, args ...string) (string, error)
 ```
 RunApp executes the specified command with the provided arguments and
 returns its combined output. Use it for short running commands, eg.
