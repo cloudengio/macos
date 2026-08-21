@@ -7,102 +7,204 @@ package buildtools
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"strings"
 
-	"gopkg.in/yaml.v3"
 	"howett.net/plist"
 )
 
-// InfoPlist represents the contents of a macOS Info.plist file.
-// The struct fields represent common keys found in such files
-// and are extracted from the Raw map for convenience and use
-// within this package.
+// InfoPlist represents the contents of a macOS bundle's Info.plist file.
+// Commonly used keys have fields of their own; every other key is captured by
+// Extra, so an InfoPlist round-trips without loss.
 type InfoPlist struct {
-	CFBundleIdentifier     string
-	CFBundleName           string
-	CFBundleExecutable     string
-	CFBundleIconFile       string
-	CFBundlePackageType    string
-	LSMinimumSystemVersion string
-	CFBundleDisplayName    string
-	CFBundleVersion        string
-	XPCService             *XPCServicePlist
-	Raw                    map[string]any
+	CFBundleIdentifier     string           `yaml:"CFBundleIdentifier"`
+	CFBundleName           string           `yaml:"CFBundleName"`
+	CFBundleExecutable     string           `yaml:"CFBundleExecutable"`
+	CFBundleIconFile       string           `yaml:"CFBundleIconFile"`
+	CFBundlePackageType    string           `yaml:"CFBundlePackageType"`
+	LSMinimumSystemVersion string           `yaml:"LSMinimumSystemVersion"`
+	CFBundleDisplayName    string           `yaml:"CFBundleDisplayName"`
+	CFBundleVersion        string           `yaml:"CFBundleVersion"`
+	XPCService             *XPCServicePlist `yaml:"XPCService"`
+
+	// Extra holds every key that has no field of its own, so that keys this
+	// package does not know about are preserved rather than discarded.
+	Extra map[string]any `yaml:",inline"`
 }
 
-// XPCServicePlist represents the contents of an XPCService dictionary
-// within an Info.plist file.
-// The Raw field contains the full dictionary contents while the ServiceName
-// field is extracted for convenience.
+// LaunchAgentPlist represents the contents of a launchd job plist, ie. a
+// LaunchAgent or LaunchDaemon. As for InfoPlist, keys without a field of their
+// own are captured by Extra.
+type LaunchAgentPlist struct {
+	Label string `yaml:"Label"`
+	// ProgramArguments is the command to run and its arguments. launchd also
+	// accepts a Program key instead, which has no field here and can be
+	// supplied via Extra.
+	ProgramArguments []string `yaml:"ProgramArguments"`
+	// RunAtLoad and KeepAlive are written only when true, since launchd treats
+	// an absent key as false.
+	RunAtLoad            bool              `yaml:"RunAtLoad"`
+	KeepAlive            bool              `yaml:"KeepAlive"`
+	EnvironmentVariables map[string]string `yaml:"EnvironmentVariables"`
+	StandardOutPath      string            `yaml:"StandardOutPath"`
+	StandardErrorPath    string            `yaml:"StandardErrorPath"`
+
+	Extra map[string]any `yaml:",inline"`
+}
+
+// XPCServicePlist represents the contents of an XPCService dictionary, which
+// may appear within a bundle's Info.plist. As for InfoPlist, keys without a
+// field of their own are captured by Extra.
 type XPCServicePlist struct {
-	ServiceName string
+	ServiceName string         `yaml:"ServiceName"`
+	Extra       map[string]any `yaml:",inline"`
 }
 
-func asString(dict map[string]any, key string) (string, error) {
-	if v, ok := dict[key]; ok {
-		if s, ok := v.(string); ok {
-			return s, nil
+// missingKey reports the first of the supplied key/value pairs whose value is
+// empty as an error, or nil if all of them are set.
+func missingKey(pairs ...struct{ key, value string }) error {
+	for _, p := range pairs {
+		if p.value == "" {
+			return fmt.Errorf("key %q not found or not a string", p.key)
 		}
-	}
-	return "", fmt.Errorf("key %q not found or not a string", key)
-}
-
-func (ipl *InfoPlist) UnmarshalYAML(node *yaml.Node) error {
-	if err := node.Decode(&ipl.Raw); err != nil {
-		return err
-	}
-	var err error
-	if ipl.CFBundleIdentifier, err = asString(ipl.Raw, "CFBundleIdentifier"); err != nil {
-		return err
-	}
-	if ipl.CFBundleName, err = asString(ipl.Raw, "CFBundleName"); err != nil {
-		return err
-	}
-	if ipl.CFBundleExecutable, err = asString(ipl.Raw, "CFBundleExecutable"); err != nil {
-		return err
-	}
-	if ipl.CFBundlePackageType, err = asString(ipl.Raw, "CFBundlePackageType"); err != nil {
-		return err
-	}
-	if ipl.LSMinimumSystemVersion, err = asString(ipl.Raw, "LSMinimumSystemVersion"); err != nil {
-		return err
-	}
-	if ipl.CFBundleDisplayName, err = asString(ipl.Raw, "CFBundleDisplayName"); err != nil {
-		return err
-	}
-	if ipl.CFBundleVersion, err = asString(ipl.Raw, "CFBundleVersion"); err != nil {
-		return err
-	}
-	// optional
-	ipl.CFBundleIconFile, _ = asString(ipl.Raw, "CFBundleIconFile")
-
-	if v, ok := ipl.Raw["XPCService"]; ok {
-		vm, ok := v.(map[string]any)
-		if !ok {
-			return fmt.Errorf("XPCService not a dictionary")
-		}
-		xpc := &XPCServicePlist{}
-		xpc.ServiceName, err = asString(vm, "ServiceName")
-		if err != nil {
-			return err
-		}
-		ipl.XPCService = xpc
 	}
 	return nil
 }
 
-func (ipl InfoPlist) MarshalPlist() (any, error) {
-	return ipl.Raw, nil
+func required(key, value string) struct{ key, value string } {
+	return struct{ key, value string }{key, value}
 }
 
-func (ipl InfoPlist) MarshalYAML() (any, error) {
-	return ipl.Raw, nil
+// Validate reports whether the keys required to describe a launchable bundle
+// are present, including those of any XPCService dictionary.
+func (ipl InfoPlist) Validate() error {
+	if err := missingKey(
+		required("CFBundleIdentifier", ipl.CFBundleIdentifier),
+		required("CFBundleName", ipl.CFBundleName),
+		required("CFBundleExecutable", ipl.CFBundleExecutable),
+		required("CFBundlePackageType", ipl.CFBundlePackageType),
+		required("LSMinimumSystemVersion", ipl.LSMinimumSystemVersion),
+		required("CFBundleDisplayName", ipl.CFBundleDisplayName),
+		required("CFBundleVersion", ipl.CFBundleVersion),
+	); err != nil {
+		return err
+	}
+	if ipl.XPCService != nil {
+		return ipl.XPCService.Validate()
+	}
+	return nil
 }
+
+// Validate reports whether the keys launchd requires of a job are present: a
+// Label, and something to run, ie. ProgramArguments or a Program key supplied
+// via Extra.
+func (lap LaunchAgentPlist) Validate() error {
+	if err := missingKey(required("Label", lap.Label)); err != nil {
+		return err
+	}
+	if filepath.Base(lap.Label) != lap.Label || strings.ContainsAny(lap.Label, `/\`) {
+		return fmt.Errorf("invalid Label %q: must not contain path separators", lap.Label)
+	}
+	if len(lap.ProgramArguments) > 0 {
+		return nil
+	}
+	if v, ok := lap.Extra["Program"]; ok {
+		if s, ok := v.(string); ok && len(strings.TrimSpace(s)) > 0 {
+			return nil
+		}
+	}
+	return fmt.Errorf("key %q not found: a launchd job must specify ProgramArguments or Program", "ProgramArguments")
+}
+
+// Validate reports whether the keys required of an XPCService dictionary are
+// present.
+func (x XPCServicePlist) Validate() error {
+	return missingKey(required("ServiceName", x.ServiceName))
+}
+
+// newKeys returns a map seeded with the contents of extra, with room for n
+// further keys.
+func newKeys(extra map[string]any, n int) map[string]any {
+	out := make(map[string]any, len(extra)+n)
+	maps.Copy(out, extra)
+	return out
+}
+
+// setString sets key to value unless value is empty.
+func setString(out map[string]any, key, value string) {
+	if value != "" {
+		out[key] = value
+	}
+}
+
+// keys returns the plist contents: the keys captured by Extra together with
+// every non-zero typed field. After unmarshalling the two cannot overlap, since
+// Extra holds only keys without a field of their own; a value populated by hand
+// that sets both has its typed field take precedence.
+func (ipl InfoPlist) keys() map[string]any {
+	out := newKeys(ipl.Extra, 9)
+	setString(out, "CFBundleIdentifier", ipl.CFBundleIdentifier)
+	setString(out, "CFBundleName", ipl.CFBundleName)
+	setString(out, "CFBundleExecutable", ipl.CFBundleExecutable)
+	setString(out, "CFBundleIconFile", ipl.CFBundleIconFile)
+	setString(out, "CFBundlePackageType", ipl.CFBundlePackageType)
+	setString(out, "LSMinimumSystemVersion", ipl.LSMinimumSystemVersion)
+	setString(out, "CFBundleDisplayName", ipl.CFBundleDisplayName)
+	setString(out, "CFBundleVersion", ipl.CFBundleVersion)
+	if ipl.XPCService != nil {
+		out["XPCService"] = ipl.XPCService.keys()
+	}
+	return out
+}
+
+// keys returns the launchd job's plist contents, as per InfoPlist.keys.
+func (lap LaunchAgentPlist) keys() map[string]any {
+	out := newKeys(lap.Extra, 7)
+	setString(out, "Label", lap.Label)
+	setString(out, "StandardOutPath", lap.StandardOutPath)
+	setString(out, "StandardErrorPath", lap.StandardErrorPath)
+	if len(lap.ProgramArguments) > 0 {
+		out["ProgramArguments"] = lap.ProgramArguments
+	}
+	if len(lap.EnvironmentVariables) > 0 {
+		out["EnvironmentVariables"] = lap.EnvironmentVariables
+	}
+	if lap.RunAtLoad {
+		out["RunAtLoad"] = true
+	}
+	if lap.KeepAlive {
+		out["KeepAlive"] = true
+	}
+	return out
+}
+
+// keys returns the XPCService dictionary contents, as per InfoPlist.keys.
+func (x XPCServicePlist) keys() map[string]any {
+	out := newKeys(x.Extra, 1)
+	setString(out, "ServiceName", x.ServiceName)
+	return out
+}
+
+func (ipl InfoPlist) MarshalPlist() (any, error) { return ipl.keys(), nil }
+
+func (ipl InfoPlist) MarshalYAML() (any, error) { return ipl.keys(), nil }
+
+func (lap LaunchAgentPlist) MarshalPlist() (any, error) { return lap.keys(), nil }
+
+func (lap LaunchAgentPlist) MarshalYAML() (any, error) { return lap.keys(), nil }
+
+func (x XPCServicePlist) MarshalPlist() (any, error) { return x.keys(), nil }
+
+func (x XPCServicePlist) MarshalYAML() (any, error) { return x.keys(), nil }
 
 func writeInfoPlist(path string, info any) Step {
 	name := filepath.Base(path)
-	return StepFunc(func(_ context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+		if err := ctx.Err(); err != nil {
+			return ErrorStep(err, "write "+name, path).Run(ctx, cmdRunner)
+		}
 		if cmdRunner.DryRun() {
 			return NewStepResult("write "+name, []string{path}, nil, nil), nil
 		}

@@ -92,3 +92,45 @@ func TestAppBundle(t *testing.T) {
 		t.Fatalf("expected file %q to exist, but it doesn't: %v", copiedPath, err)
 	}
 }
+
+func TestWriteInfoPlistGitBuild(t *testing.T) {
+	tempDir := t.TempDir()
+	var info buildtools.InfoPlist
+	if err := yaml.Unmarshal([]byte(plistYAML), &info); err != nil {
+		t.Fatalf("failed to unmarshal info plist: %v", err)
+	}
+
+	bundle := buildtools.AppBundle{
+		Path: filepath.Join(tempDir, "TestApp.app"),
+		Info: info,
+	}
+
+	runner := buildtools.NewCommandRunner()
+	ctx := context.Background()
+
+	for _, step := range bundle.Create() {
+		if _, err := step.Run(ctx, runner); err != nil {
+			t.Fatalf("bundle create failed: %v", err)
+		}
+	}
+
+	// Case 1: CFBundleVersion has no branch pattern ("1.0.0").
+	// Previously this deadlocked because versionCh was never closed.
+	git := buildtools.NewGit(".")
+	steps := bundle.WriteInfoPlistGitBuild(ctx, git)
+	for i, step := range steps {
+		if _, err := step.Run(ctx, runner); err != nil {
+			t.Fatalf("step %d failed: %v", i, err)
+		}
+	}
+
+	// Case 2: CFBundleVersion specifies branch ("1.0.0+git:HEAD")
+	bundleWithGit := bundle
+	bundleWithGit.Info.CFBundleVersion = "1.0.0+git:HEAD"
+	gitSteps := bundleWithGit.WriteInfoPlistGitBuild(ctx, git)
+	for i, step := range gitSteps {
+		if _, err := step.Run(ctx, runner); err != nil {
+			t.Fatalf("git step %d failed: %v", i, err)
+		}
+	}
+}

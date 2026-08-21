@@ -34,6 +34,7 @@ func (b AppBundle) WriteInfoPlistGitBuild(_ context.Context, git Git) []Step {
 	versionCh := make(chan string, 1)
 
 	getHash := StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+		defer close(versionCh)
 		branch := git.GetBranch(b.Info.CFBundleVersion)
 		if len(branch) == 0 {
 			return StepResult{}, nil
@@ -56,7 +57,8 @@ func (b AppBundle) WriteInfoPlistGitBuild(_ context.Context, git Git) []Step {
 		if !ok {
 			return NewStepResult("no new version for CFBundleVersion, skipping update", nil, nil, nil), nil
 		}
-		b.Info.Raw["CFBundleVersion"] = newVersion
+		// b is a value receiver, so this updates only this step's copy.
+		b.Info.CFBundleVersion = newVersion
 		return writeInfoPlist(filepath.Join(b.Path, "Contents", "Info.plist"), b.Info).Run(ctx, cmdRunner)
 	})
 
