@@ -9,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -34,11 +35,24 @@ func IsAppBundle(path string) bool {
 	return true
 }
 
-// LocateInBundle finds the requested binary in the specified app bundle
-// and returns its path within that bundle.
-func LocateInBundle(bundlePath, binary string) string {
+// IsExecutable returns true if the provided file mode has any of the executable
+// bits set (ie  mode&0o111 != 0).
+func IsExecutable(mode fs.FileMode) bool {
+	return mode&0o111 != 0
+}
+
+// IsReadable returns true if the provided file mode has any of the readable
+// bits set (ie  mode&0o444 != 0).
+func IsReadable(mode fs.FileMode) bool {
+	return mode&0o444 != 0
+}
+
+// LocateInBundle finds the requested file whose permissions are matched by
+// the matchPerms function, eg. use IsExecutable to find any file with an executable
+// bit set. It will descend into subpackages to locate the requested file.
+func LocateInBundle(bundlePath, filename string, matchPerms func(fs.FileMode) bool) (string, bool) {
 	if !IsAppBundle(bundlePath) {
-		return ""
+		return "", false
 	}
 
 	// Confine the walk to the bundle directory: os.Root rejects any path that
@@ -46,7 +60,7 @@ func LocateInBundle(bundlePath, binary string) string {
 	// the binary located here is subsequently executed.
 	root, err := os.OpenRoot(bundlePath)
 	if err != nil {
-		return ""
+		return "", false
 	}
 	defer root.Close()
 
@@ -55,51 +69,72 @@ func LocateInBundle(bundlePath, binary string) string {
 		if err != nil {
 			return err
 		}
-		if d.Name() == binary {
-			if info, err := d.Info(); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0111 != 0 {
+		if d.Name() == filename {
+			if info, err := d.Info(); err == nil && info.Mode().IsRegular() && matchPerms(info.Mode().Perm()) {
 				location = filepath.Join(bundlePath, path)
 				return fs.SkipAll
 			}
 		}
 		return nil
 	})
-	return location
+	return location, location != ""
 }
 
-// InAppBundle determines if the running process is within an app bundle and
-// returns the path of the requested binary inside that bundle. It uses the
-// heuristic of checking if the executable is located under
-// .../<app-bundle>/Contents/MacOS and that <app-bundle> satisfies IsAppBundle.
-func InAppBundle(binary string) (string, bool) {
-	exe, err := os.Executable()
+// ExecutablePath returns the path of the executable that started the
+// current process, following softlinks.
+func ExecutablePath() (string, error) {
+	e, err := os.Executable()
 	if err != nil {
-		return "", false
+		return "", err
 	}
-	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
-		exe = resolved
+	if resolved, err := filepath.EvalSymlinks(e); err == nil {
+		e = resolved
 	}
+	return e, nil
+}
 
-	// Let's see if this binary is in an app bundle.
-	macos := filepath.Dir(exe)
-	if !strings.EqualFold(filepath.Base(macos), "macos") {
+// InBundle returns true if the specified path has the specified parents
+// and the top-level parent is an app bundle, that is ends in .app
+// and contains a Contents/Info.plist file.
+func InBundle(path string, parents ...string) (string, bool) {
+	if len(parents) == 0 {
 		return "", false
 	}
-	contents := filepath.Dir(macos)
-	if !strings.EqualFold(filepath.Base(contents), "contents") {
+	parent := filepath.Dir(path)
+	for _, parent0 := range slices.Backward(parents) {
+		if !strings.EqualFold(filepath.Base(parent), parent0) {
+			return "", false
+		}
+		parent = filepath.Dir(parent)
+	}
+	// The loop has consumed every parent, so parent is now the candidate
+	// bundle itself; taking its Dir again would step outside it.
+	appBundle := parent
+	if filepath.Ext(appBundle) != ".app" {
 		return "", false
 	}
-	appBundle := filepath.Dir(contents)
-
 	if !IsAppBundle(appBundle) {
 		return "", false
 	}
+	return appBundle, true
+}
 
-	// Look for the binary.
-	plugin := LocateInBundle(appBundle, binary)
-	if len(plugin) > 0 {
-		return plugin, true
+// ProcessInBundle determines if the executable that started the running process
+// is within an app bundle and returns the path of that bundle. It uses
+// InBundle(executable, "Contents", "MacOS") as the heuristic; use
+// LocateInBundle to then find a file within the returned bundle.
+//
+// A bundle nested inside another must therefore be placed in the outer
+// bundle's Contents/MacOS, ie. <outer>.app/Contents/MacOS/<inner>.app, so that
+// the same heuristic resolves the inner bundle to the outer one. A bundle
+// placed in Contents/Library is reachable by LocateInBundle, which walks the
+// whole tree, but not by InBundle or ProcessInBundle.
+func ProcessInBundle() (string, bool) {
+	exe, err := ExecutablePath()
+	if err != nil {
+		return "", false
 	}
-	return "", false
+	return InBundle(exe, "Contents", "MacOS")
 }
 
 // LookPathBundle is like exec.LookPath but for app bundles.
@@ -145,12 +180,12 @@ func LookPathBundleAll(bundle, pathList string) []string {
 // LookupBundleBinary iterates over all instances of bundle in pathList to locate
 // the first one that contains binary returning the absolute pathname of the bundle
 // and binary in that bundle or empty strings if not found.
-func LookupBundleBinary(bundle, binary, pathList string) (string, string) {
+func LookupBundleBinary(bundle, binary, pathList string) (string, string, bool) {
 	bundlePaths := LookPathBundleAll(bundle, pathList)
 	for _, bundle := range bundlePaths {
-		if bp := LocateInBundle(bundle, binary); len(bp) > 0 {
-			return bundle, bp
+		if bp, ok := LocateInBundle(bundle, binary, IsExecutable); ok {
+			return bundle, bp, true
 		}
 	}
-	return "", ""
+	return "", "", false
 }

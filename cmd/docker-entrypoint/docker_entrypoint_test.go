@@ -91,13 +91,13 @@ func TestDockerBuildRun(t *testing.T) {
 		searchPath = filepath.Join("/", "Applications")
 	}
 
-	_, keychainBinary := macosutils.LookupBundleBinary(plugin.DefaultKeyChainAppBundle, "cloudeng-keychain", searchPath)
-	if len(keychainBinary) == 0 {
+	_, keychainBinary, ok := macosutils.LookupBundleBinary(plugin.DefaultKeyChainAppBundle, "cloudeng-keychain", searchPath)
+	if !ok {
 		t.Fatalf("failed to locate keychain binary in bundle %s, path: %s", plugin.DefaultKeyChainAppBundle, searchPath)
 	}
 
-	_, pluginBinary := macosutils.LookupBundleBinary(plugin.DefaultKeyChainAppBundle, plugin.DefaultPluginBinary, searchPath)
-	if len(pluginBinary) == 0 {
+	_, pluginBinary, ok := macosutils.LookupBundleBinary(plugin.DefaultKeyChainAppBundle, plugin.DefaultPluginBinary, searchPath)
+	if !ok {
 		t.Fatalf("failed to locate keychain plugin binary in bundle %s, path: %s", plugin.DefaultKeyChainAppBundle, searchPath)
 	}
 

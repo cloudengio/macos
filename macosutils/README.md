@@ -18,14 +18,20 @@ ErrAlreadyLaunched = errors.New("application already launched")
 
 
 ## Functions
-### Func InAppBundle
+### Func ExecutablePath
 ```go
-func InAppBundle(binary string) (string, bool)
+func ExecutablePath() (string, error)
 ```
-InAppBundle determines if the running process is within an app bundle
-and returns the path of the requested binary inside that bundle.
-It uses the heuristic of checking if the executable is located under
-.../<app-bundle>/Contents/MacOS and that <app-bundle> satisfies IsAppBundle.
+ExecutablePath returns the path of the executable that started the current
+process, following softlinks.
+
+### Func InBundle
+```go
+func InBundle(path string, parents ...string) (string, bool)
+```
+InBundle returns true if the specified path has the specified parents and
+the top-level parent is an app bundle, that is ends in .app and contains a
+Contents/Info.plist file.
 
 ### Func IsAppBundle
 ```go
@@ -33,6 +39,20 @@ func IsAppBundle(path string) bool
 ```
 IsAppBundle returns true if path is a directory ending with .app and
 contains a Contents/Info.plist file.
+
+### Func IsExecutable
+```go
+func IsExecutable(mode fs.FileMode) bool
+```
+IsExecutable returns true if the provided file mode has any of the
+executable bits set (ie mode&0o111 != 0).
+
+### Func IsReadable
+```go
+func IsReadable(mode fs.FileMode) bool
+```
+IsReadable returns true if the provided file mode has any of the readable
+bits set (ie mode&0o444 != 0).
 
 ### Func IsServiceInstalled
 ```go
@@ -43,10 +63,12 @@ current user's LaunchAgents directory.
 
 ### Func LocateInBundle
 ```go
-func LocateInBundle(bundlePath, binary string) string
+func LocateInBundle(bundlePath, filename string, matchPerms func(fs.FileMode) bool) (string, bool)
 ```
-LocateInBundle finds the requested binary in the specified app bundle and
-returns its path within that bundle.
+LocateInBundle finds the requested file whose permissions are matched by
+the matchPerms function, eg. use IsExecutable to find any file with an
+executable bit set. It will descend into subpackages to locate the requested
+file.
 
 ### Func LookPathBundle
 ```go
@@ -63,11 +85,26 @@ on pathList without duplicates.
 
 ### Func LookupBundleBinary
 ```go
-func LookupBundleBinary(bundle, binary, pathList string) (string, string)
+func LookupBundleBinary(bundle, binary, pathList string) (string, string, bool)
 ```
 LookupBundleBinary iterates over all instances of bundle in pathList to
 locate the first one that contains binary returning the absolute pathname of
 the bundle and binary in that bundle or empty strings if not found.
+
+### Func ProcessInBundle
+```go
+func ProcessInBundle() (string, bool)
+```
+ProcessInBundle determines if the executable that started the running
+process is within an app bundle and returns the path of that bundle.
+It uses InBundle(executable, "Contents", "MacOS") as the heuristic;
+use LocateInBundle to then find a file within the returned bundle.
+
+A bundle nested inside another must therefore be placed in the outer
+bundle's Contents/MacOS, ie. <outer>.app/Contents/MacOS/<inner>.app,
+so that the same heuristic resolves the inner bundle to the outer one.
+A bundle placed in Contents/Library is reachable by LocateInBundle, which
+walks the whole tree, but not by InBundle or ProcessInBundle.
 
 
 

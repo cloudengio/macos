@@ -114,7 +114,7 @@ func LocatePluginBinary(keychainBundle, pluginBundle, pluginBinary string) (stri
 // binary are returned. If not found, an error is returned containing exec.ErrNotFound.
 func LocateKeychainBinaryInAppBundle(appBundle, binary string) (string, string, error) {
 	if filepath.IsAbs(appBundle) {
-		if location := macosutils.LocateInBundle(appBundle, binary); location != "" {
+		if location, ok := macosutils.LocateInBundle(appBundle, binary, macosutils.IsExecutable); ok {
 			return appBundle, location, nil
 		}
 		return "", "", fmt.Errorf("app bundle %q: executable %q not found: %w", appBundle, binary, exec.ErrNotFound)
@@ -133,30 +133,35 @@ func LocateKeychainBinaryInAppBundle(appBundle, binary string) (string, string, 
 	} else {
 		searchPath = filepath.Join("/", "Applications")
 	}
-	bundlePath, pluginPath := macosutils.LookupBundleBinary(appBundle, binary, searchPath)
-	if len(bundlePath) > 0 && len(pluginPath) > 0 {
+	bundlePath, pluginPath, ok := macosutils.LookupBundleBinary(appBundle, binary, searchPath)
+	if ok {
 		return bundlePath, pluginPath, nil
 	}
-
 	return "", "", fmt.Errorf("app bundle %q not found in /Applications or PATH: %w", appBundle, exec.ErrNotFound)
 }
 
 // BundledPluginApp returns the path to the plugin app bundle nested inside the
 // app bundle that contains the currently running executable, and whether it was
 // found. This lets a host app (e.g. the keychain client) ship the plugin as a
-// nested bundle at <host>.app/Contents/Library/macos-keychain-plugin.app and use
+// nested bundle at <host>.app/Contents/MacOS/macos-keychain-plugin.app and use
 // it with no configuration.
 //
 // The running executable is resolved through symlinks first: it may be invoked
 // via a symlink (gobundle creates one, and PATH entries are often symlinks), and
 // only the resolved path reveals the real location inside the bundle. The
 // executable is expected at <host>.app/Contents/MacOS/<name>, so the plugin
-// bundle is a sibling under Contents/Library.
+// bundle is a sibling under Contents/MacOS.
 func BundledPluginApp(pluginBinary string) (string, bool) {
+	// bundle is the path to the enclosing parent bundle, not the bundle that
+	// contains the plugin.
+	bundle, ok := macosutils.ProcessInBundle()
+	if !ok {
+		return "", false
+	}
 	if len(pluginBinary) == 0 {
 		pluginBinary = DefaultPluginBinary
 	}
-	return macosutils.InAppBundle(pluginBinary)
+	return macosutils.LocateInBundle(bundle, pluginBinary, macosutils.IsExecutable)
 }
 
 // pluginConfig returns a Config based on the KeychainFlags. The account defaults

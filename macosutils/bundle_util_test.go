@@ -5,6 +5,7 @@
 package macosutils_test
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -96,28 +97,61 @@ func TestLocateInBundle(t *testing.T) {
 	// The binary being searched for, in the conventional location.
 	wantPath := writeFile(t, filepath.Join(bundle, "Contents", "MacOS", "host-binary"), "#!/bin/sh\n", 0700)
 
-	// A non-executable file, which must not be reported.
-	writeFile(t, filepath.Join(bundle, "Contents", "Resources", "data-file"), "data\n", 0600)
-
 	// An executable nested deeper than Contents/MacOS: the whole bundle is
 	// searched, not just Contents/MacOS.
 	nested := writeFile(t, filepath.Join(bundle, "Contents", "Library", "nested.app", "Contents", "MacOS", "nested-binary"), "#!/bin/sh\n", 0700)
 
+	// A readable, non-executable resource, found only when the permission
+	// predicate allows it.
+	data := writeFile(t, filepath.Join(bundle, "Contents", "Resources", "data-file"), "data\n", 0600)
+
 	for _, tc := range []struct {
-		name   string
-		bundle string
-		binary string
-		want   string
+		name    string
+		bundle  string
+		file    string
+		matches func(fs.FileMode) bool
+		want    string
 	}{
-		{"found in Contents/MacOS", bundle, "host-binary", wantPath},
-		{"found nested", bundle, "nested-binary", nested},
-		{"not executable", bundle, "data-file", ""},
-		{"no such binary", bundle, "no-such-binary", ""},
-		{"not a bundle", tmpDir, "host-binary", ""},
-		{"bundle does not exist", filepath.Join(tmpDir, "Missing.app"), "host-binary", ""},
+		{"found in Contents/MacOS", bundle, "host-binary", macosutils.IsExecutable, wantPath},
+		{"found nested", bundle, "nested-binary", macosutils.IsExecutable, nested},
+		{"not executable", bundle, "data-file", macosutils.IsExecutable, ""},
+		{"readable resource", bundle, "data-file", macosutils.IsReadable, data},
+		{"executable is also readable", bundle, "host-binary", macosutils.IsReadable, wantPath},
+		{"no such file", bundle, "no-such-binary", macosutils.IsExecutable, ""},
+		{"not a bundle", tmpDir, "host-binary", macosutils.IsExecutable, ""},
+		{"bundle does not exist", filepath.Join(tmpDir, "Missing.app"), "host-binary", macosutils.IsExecutable, ""},
 	} {
-		if got, want := macosutils.LocateInBundle(tc.bundle, tc.binary), tc.want; got != want {
-			t.Errorf("%v: LocateInBundle(%q, %q) = %q, want %q", tc.name, tc.bundle, tc.binary, got, want)
+		got, ok := macosutils.LocateInBundle(tc.bundle, tc.file, tc.matches)
+		if got != tc.want {
+			t.Errorf("%v: LocateInBundle(%q, %q) = %q, want %q", tc.name, tc.bundle, tc.file, got, tc.want)
+		}
+		if want := tc.want != ""; ok != want {
+			t.Errorf("%v: LocateInBundle(%q, %q) ok = %v, want %v", tc.name, tc.bundle, tc.file, ok, want)
+		}
+	}
+}
+
+// TestIsExecutableIsReadable covers the permission predicates passed to
+// LocateInBundle and ProcessInBundle.
+func TestIsExecutableIsReadable(t *testing.T) {
+	for _, tc := range []struct {
+		mode                 fs.FileMode
+		executable, readable bool
+	}{
+		{0700, true, true},
+		{0600, false, true},
+		{0500, true, true},
+		{0400, false, true},
+		{0100, true, false},
+		{0000, false, false},
+		{0111, true, false},
+		{0444, false, true},
+	} {
+		if got, want := macosutils.IsExecutable(tc.mode), tc.executable; got != want {
+			t.Errorf("IsExecutable(%o) = %v, want %v", tc.mode, got, want)
+		}
+		if got, want := macosutils.IsReadable(tc.mode), tc.readable; got != want {
+			t.Errorf("IsReadable(%o) = %v, want %v", tc.mode, got, want)
 		}
 	}
 }
@@ -135,8 +169,8 @@ func TestLocateInBundleSymlinkEscape(t *testing.T) {
 		t.Skipf("symlinks unsupported: %v", err)
 	}
 
-	if got := macosutils.LocateInBundle(bundle, "escapee"); got != "" {
-		t.Errorf("LocateInBundle followed a symlink out of the bundle: got %q", got)
+	if got, ok := macosutils.LocateInBundle(bundle, "escapee", macosutils.IsExecutable); ok || got != "" {
+		t.Errorf("LocateInBundle followed a symlink out of the bundle: got %q, %v", got, ok)
 	}
 }
 
@@ -268,24 +302,88 @@ func TestLookupBundleBinary(t *testing.T) {
 		{"dot rejected", ".", "tool-binary", joinDirs(dirB), "", ""},
 		{"dot dot rejected", "..", "tool-binary", joinDirs(dirB), "", ""},
 	} {
-		gotBundle, gotBinary := macosutils.LookupBundleBinary(tc.bundle, tc.binary, tc.pathList)
+		gotBundle, gotBinary, ok := macosutils.LookupBundleBinary(tc.bundle, tc.binary, tc.pathList)
 		if gotBundle != tc.wantBundle || gotBinary != tc.wantBinary {
 			t.Errorf("%v: LookupBundleBinary(%q, %q, %q) = %q, %q, want %q, %q",
 				tc.name, tc.bundle, tc.binary, tc.pathList,
 				gotBundle, gotBinary, tc.wantBundle, tc.wantBinary)
 		}
+		if want := tc.wantBundle != ""; ok != want {
+			t.Errorf("%v: LookupBundleBinary(%q, %q, %q) ok = %v, want %v",
+				tc.name, tc.bundle, tc.binary, tc.pathList, ok, want)
+		}
 	}
 }
 
-// The test binary is not itself inside an app bundle, so InAppBundle must
+// TestInBundle covers the parent-directory heuristic, including the nested
+// bundle layout: a bundle nested inside another must live in the outer bundle's
+// Contents/MacOS, so that InBundle(nested, "Contents", "MacOS") resolves to the
+// outer bundle. A bundle placed in Contents/Library is not found this way.
+func TestInBundle(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	outer := makeBundle(t, tmpDir, "Outer.app")
+	// The supported nesting: Outer.app/Contents/MacOS/Inner.app.
+	inner := makeBundle(t, filepath.Join(outer, "Contents", "MacOS"), "Inner.app")
+	innerExe := writeFile(t, filepath.Join(inner, "Contents", "MacOS", "inner-binary"), "#!/bin/sh\n", 0700)
+	// The unsupported nesting: Outer.app/Contents/Library/Stray.app.
+	stray := makeBundle(t, filepath.Join(outer, "Contents", "Library"), "Stray.app")
+
+	outerExe := writeFile(t, filepath.Join(outer, "Contents", "MacOS", "outer-binary"), "#!/bin/sh\n", 0700)
+	loose := writeFile(t, filepath.Join(tmpDir, "loose-binary"), "#!/bin/sh\n", 0700)
+
+	for _, tc := range []struct {
+		name    string
+		path    string
+		parents []string
+		want    string
+	}{
+		{"executable in a bundle", outerExe, []string{"Contents", "MacOS"}, outer},
+		{"executable in a nested bundle", innerExe, []string{"Contents", "MacOS"}, inner},
+		{"nested bundle in Contents/MacOS", inner, []string{"Contents", "MacOS"}, outer},
+		{"nested bundle in Contents/Library", stray, []string{"Contents", "MacOS"}, ""},
+		{"nested bundle, matching parents", stray, []string{"Contents", "Library"}, outer},
+		{"wrong parents", outerExe, []string{"Contents", "Resources"}, ""},
+		{"no parents", outerExe, nil, ""},
+		{"not in a bundle", loose, []string{"Contents", "MacOS"}, ""},
+	} {
+		got, ok := macosutils.InBundle(tc.path, tc.parents...)
+		if got != tc.want {
+			t.Errorf("%v: InBundle(%q, %v) = %q, want %q", tc.name, tc.path, tc.parents, got, tc.want)
+		}
+		if want := tc.want != ""; ok != want {
+			t.Errorf("%v: InBundle(%q, %v) ok = %v, want %v", tc.name, tc.path, tc.parents, ok, want)
+		}
+	}
+}
+
+func TestExecutablePath(t *testing.T) {
+	got, err := macosutils.ExecutablePath()
+	if err != nil {
+		t.Fatalf("ExecutablePath: %v", err)
+	}
+	if !filepath.IsAbs(got) {
+		t.Errorf("ExecutablePath = %q, want an absolute path", got)
+	}
+	// Symlinks are resolved, so the result is its own resolution.
+	resolved, err := filepath.EvalSymlinks(got)
+	if err != nil {
+		t.Fatalf("EvalSymlinks(%v): %v", got, err)
+	}
+	if got != resolved {
+		t.Errorf("ExecutablePath = %q, want the symlink-resolved %q", got, resolved)
+	}
+}
+
+// The test binary is not itself inside an app bundle, so ProcessInBundle must
 // report that it is not. The positive case is covered by
-// TestInAppBundleFromBundle below.
-func TestInAppBundleNotInBundle(t *testing.T) {
+// TestProcessInBundleFromBundle below.
+func TestProcessInBundleNotInBundle(t *testing.T) {
 	if os.Getenv(inBundleEnv) != "" {
 		t.Skip("running inside the re-executed child")
 	}
-	if got, ok := macosutils.InAppBundle("anything"); ok || got != "" {
-		t.Errorf("InAppBundle = %q, %v, want \"\", false", got, ok)
+	if got, ok := macosutils.ProcessInBundle(); ok || got != "" {
+		t.Errorf("ProcessInBundle = %q, %v, want \"\", false", got, ok)
 	}
 }
 
@@ -296,11 +394,12 @@ const (
 	childPlugin = "nested-plugin"
 )
 
-// TestInAppBundleFromBundle copies the test binary into a synthetic app bundle
-// and re-executes it there, so that os.Executable inside the child resolves to
-// a path within a bundle. That is the only way to exercise the positive path of
-// InAppBundle, which inspects the running executable rather than an argument.
-func TestInAppBundleFromBundle(t *testing.T) {
+// TestProcessInBundleFromBundle copies the test binary into a synthetic app
+// bundle and re-executes it there, so that os.Executable inside the child
+// resolves to a path within a bundle. That is the only way to exercise the
+// positive path of ProcessInBundle, which inspects the running executable
+// rather than an argument.
+func TestProcessInBundleFromBundle(t *testing.T) {
 	if os.Getenv(inBundleEnv) != "" {
 		t.Skip("running inside the re-executed child")
 	}
@@ -325,43 +424,61 @@ func TestInAppBundleFromBundle(t *testing.T) {
 	// The executable the child will look for inside its own bundle.
 	writeFile(t, filepath.Join(bundle, "Contents", "Library", childPlugin), "#!/bin/sh\n", 0700)
 
-	cmd := exec.Command(hosted, "-test.run=TestInAppBundleChild", "-test.v")
-	cmd.Env = append(os.Environ(), inBundleEnv+"=1")
+	cmd := exec.Command(hosted, "-test.run=TestProcessInBundleChild", "-test.v")
+	cmd.Env = append(os.Environ(), inBundleEnv+"=1", childBundleEnv+"="+bundle)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("re-executed test failed: %v\n%s", err, out)
 	}
 	// Require the child's own result line: a skipped child would otherwise
 	// still report an overall PASS and this test would prove nothing.
-	if !strings.Contains(string(out), "--- PASS: TestInAppBundleChild") {
-		t.Errorf("re-executed test did not run TestInAppBundleChild:\n%s", out)
+	if !strings.Contains(string(out), "--- PASS: TestProcessInBundleChild") {
+		t.Errorf("re-executed test did not run TestProcessInBundleChild:\n%s", out)
 	}
 }
 
-// TestInAppBundleChild runs only inside the process re-executed by
-// TestInAppBundleFromBundle.
-func TestInAppBundleChild(t *testing.T) {
+// childBundleEnv carries the bundle the child is expected to report.
+const childBundleEnv = "CLOUDENG_MACOSUTILS_TEST_BUNDLE"
+
+// TestProcessInBundleChild runs only inside the process re-executed by
+// TestProcessInBundleFromBundle.
+func TestProcessInBundleChild(t *testing.T) {
 	if os.Getenv(inBundleEnv) == "" {
-		t.Skip("only runs as the child of TestInAppBundleFromBundle")
+		t.Skip("only runs as the child of TestProcessInBundleFromBundle")
 	}
 
-	got, ok := macosutils.InAppBundle(childPlugin)
+	bundle, ok := macosutils.ProcessInBundle()
 	if !ok {
-		t.Fatalf("InAppBundle(%q) = %q, false; want the nested plugin", childPlugin, got)
+		t.Fatalf("ProcessInBundle = %q, false; want this process's bundle", bundle)
+	}
+	// ProcessInBundle resolves symlinks, so resolve the expectation too:
+	// macOS temp directories live under a symlinked /var.
+	want := os.Getenv(childBundleEnv)
+	if resolved, err := filepath.EvalSymlinks(want); err == nil {
+		want = resolved
+	}
+	if bundle != want {
+		t.Errorf("ProcessInBundle = %q, want %q", bundle, want)
+	}
+
+	// The bundle is then searched for the wanted file.
+	got, ok := macosutils.LocateInBundle(bundle, childPlugin, macosutils.IsExecutable)
+	if !ok {
+		t.Fatalf("LocateInBundle(%q) = %q, false; want the nested plugin", childPlugin, got)
 	}
 	if want := filepath.Join("Contents", "Library", childPlugin); !strings.HasSuffix(got, want) {
-		t.Errorf("InAppBundle = %q, want a path ending in %q", got, want)
+		t.Errorf("LocateInBundle = %q, want a path ending in %q", got, want)
 	}
 	fi, err := os.Stat(got)
 	if err != nil {
 		t.Fatalf("stat(%v): %v", got, err)
 	}
-	if !fi.Mode().IsRegular() || fi.Mode().Perm()&0100 == 0 {
-		t.Errorf("InAppBundle returned %v, which is not an executable file", fi.Mode())
+	if !fi.Mode().IsRegular() || !macosutils.IsExecutable(fi.Mode().Perm()) {
+		t.Errorf("LocateInBundle returned %v, which is not an executable file", fi.Mode())
 	}
 
 	// A binary that is not in the bundle must not be found.
-	if got, ok := macosutils.InAppBundle("no-such-plugin"); ok || got != "" {
-		t.Errorf("InAppBundle(no-such-plugin) = %q, %v, want \"\", false", got, ok)
+	if got, ok := macosutils.LocateInBundle(bundle, "no-such-plugin", macosutils.IsExecutable); ok || got != "" {
+		t.Errorf("LocateInBundle(no-such-plugin) = %q, %v, want \"\", false", got, ok)
 	}
 }
