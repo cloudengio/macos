@@ -44,12 +44,24 @@ func ContextWithCWD(ctx context.Context, cwd string) context.Context
 ContextWithCWD returns a new context with the specified current working
 directory. CommandRunner will use this directory for executing commands.
 
+### Func GUIDomain
+```go
+func GUIDomain() string
+```
+GUIDomain returns the launchd GUI domain target for the current user.
+
 ### Func RegisterFlagsOrDie
 ```go
 func RegisterFlagsOrDie(f any, fs *flag.FlagSet)
 ```
 RegisterFlagsOrDie registers a struct that contains an instance of
 CommonFlags with the provided FlagSet, panicing on error.
+
+### Func UserLaunchAgentsDir
+```go
+func UserLaunchAgentsDir() (string, error)
+```
+UserLaunchAgentsDir returns the current user's LaunchAgents directory.
 
 
 
@@ -639,21 +651,24 @@ Suffix returns the filename suffix appropriate for the icon size multiple.
 ### Type InfoPlist
 ```go
 type InfoPlist struct {
-	CFBundleIdentifier     string
-	CFBundleName           string
-	CFBundleExecutable     string
-	CFBundleIconFile       string
-	CFBundlePackageType    string
-	LSMinimumSystemVersion string
-	CFBundleDisplayName    string
-	CFBundleVersion        string
-	XPCService             *XPCServicePlist
-	Raw                    map[string]any
+	CFBundleIdentifier     string           `yaml:"CFBundleIdentifier"`
+	CFBundleName           string           `yaml:"CFBundleName"`
+	CFBundleExecutable     string           `yaml:"CFBundleExecutable"`
+	CFBundleIconFile       string           `yaml:"CFBundleIconFile"`
+	CFBundlePackageType    string           `yaml:"CFBundlePackageType"`
+	LSMinimumSystemVersion string           `yaml:"LSMinimumSystemVersion"`
+	CFBundleDisplayName    string           `yaml:"CFBundleDisplayName"`
+	CFBundleVersion        string           `yaml:"CFBundleVersion"`
+	XPCService             *XPCServicePlist `yaml:"XPCService"`
+
+	// Extra holds every key that has no field of its own, so that keys this
+	// package does not know about are preserved rather than discarded.
+	Extra map[string]any `yaml:",inline"`
 }
 ```
-InfoPlist represents the contents of a macOS Info.plist file. The struct
-fields represent common keys found in such files and are extracted from the
-Raw map for convenience and use within this package.
+InfoPlist represents the contents of a macOS bundle's Info.plist file.
+Commonly used keys have fields of their own; every other key is captured by
+Extra, so an InfoPlist round-trips without loss.
 
 ### Methods
 
@@ -668,8 +683,133 @@ func (ipl InfoPlist) MarshalYAML() (any, error)
 
 
 ```go
-func (ipl *InfoPlist) UnmarshalYAML(node *yaml.Node) error
+func (ipl InfoPlist) Validate() error
 ```
+Validate reports whether the keys required to describe a launchable bundle
+are present, including those of any XPCService dictionary.
+
+
+
+
+### Type LaunchAgent
+```go
+type LaunchAgent struct {
+	// Plist describes the job. Its Label names both the installed file and the
+	// launchd service, so it must be set.
+	Plist LaunchAgentPlist
+
+	// Dir is the directory the plist is installed into. If empty,
+	// UserLaunchAgentsDir is used. Set it to install elsewhere, or in tests.
+	Dir string
+
+	// Domain is the launchd domain the job is bootstrapped into, eg. "gui/501".
+	// If empty, GUIDomain for the current user is used.
+	Domain string
+}
+```
+LaunchAgent manages the installation of a launchd job as a per-user
+LaunchAgent, ie. a plist in ~/Library/LaunchAgents that launchd starts when
+the user logs in.
+
+A LaunchAgent rather than a system-wide LaunchDaemon is the right choice
+for a job that needs a logged-in user's GUI session, for example to use
+Virtualization.framework.
+
+### Methods
+
+```go
+func (l LaunchAgent) Install() []Step
+```
+Install returns the steps that write the job's plist and load it:
+any previously loaded instance is booted out first, so Install doubles as a
+reinstall of a changed job.
+
+
+```go
+func (l LaunchAgent) IsInstalled() bool
+```
+IsInstalled reports whether the job's plist is present. It says nothing
+about whether launchd has the job loaded; use Status for that.
+
+
+```go
+func (l LaunchAgent) PlistPath() (string, error)
+```
+PlistPath returns the path the job's plist is installed at.
+
+
+```go
+func (l LaunchAgent) Restart() Step
+```
+Restart returns a Step that restarts the job, starting it if it is loaded
+but not running.
+
+
+```go
+func (l LaunchAgent) ServiceTarget() (string, error)
+```
+ServiceTarget returns the launchd service target for the job, ie. the domain
+and label that launchctl subcommands operate on.
+
+
+```go
+func (l LaunchAgent) Status() Step
+```
+Status returns a Step that prints launchd's view of the job. launchctl
+reports a useful message for a job that is not loaded, so the step succeeds
+either way.
+
+
+```go
+func (l LaunchAgent) Uninstall() []Step
+```
+Uninstall returns the steps that unload the job and remove its plist.
+It succeeds whether or not the job is currently loaded or installed.
+
+
+
+
+### Type LaunchAgentPlist
+```go
+type LaunchAgentPlist struct {
+	Label string `yaml:"Label"`
+	// ProgramArguments is the command to run and its arguments. launchd also
+	// accepts a Program key instead, which has no field here and can be
+	// supplied via Extra.
+	ProgramArguments []string `yaml:"ProgramArguments"`
+	// RunAtLoad and KeepAlive are written only when true, since launchd treats
+	// an absent key as false.
+	RunAtLoad            bool              `yaml:"RunAtLoad"`
+	KeepAlive            bool              `yaml:"KeepAlive"`
+	EnvironmentVariables map[string]string `yaml:"EnvironmentVariables"`
+	StandardOutPath      string            `yaml:"StandardOutPath"`
+	StandardErrorPath    string            `yaml:"StandardErrorPath"`
+
+	Extra map[string]any `yaml:",inline"`
+}
+```
+LaunchAgentPlist represents the contents of a launchd job plist, ie.
+a LaunchAgent or LaunchDaemon. As for InfoPlist, keys without a field of
+their own are captured by Extra.
+
+### Methods
+
+```go
+func (lap LaunchAgentPlist) MarshalPlist() (any, error)
+```
+
+
+```go
+func (lap LaunchAgentPlist) MarshalYAML() (any, error)
+```
+
+
+```go
+func (lap LaunchAgentPlist) Validate() error
+```
+Validate reports whether the keys launchd requires of a job are present: a
+Label, and something to run, ie. ProgramArguments or a Program key supplied
+via Extra.
 
 
 
@@ -1209,7 +1349,7 @@ specified path with the specified permissions.
 func WritePlistFile(v any, elems ...string) Step
 ```
 WritePlistFile returns a Step that marshals v to a plist and writes it to
-the specified path with the specified permissions.
+the specified path.
 
 
 
@@ -1383,12 +1523,33 @@ build tree.
 ### Type XPCServicePlist
 ```go
 type XPCServicePlist struct {
-	ServiceName string
+	ServiceName string         `yaml:"ServiceName"`
+	Extra       map[string]any `yaml:",inline"`
 }
 ```
-XPCServicePlist represents the contents of an XPCService dictionary within
-an Info.plist file. The Raw field contains the full dictionary contents
-while the ServiceName field is extracted for convenience.
+XPCServicePlist represents the contents of an XPCService dictionary, which
+may appear within a bundle's Info.plist. As for InfoPlist, keys without a
+field of their own are captured by Extra.
+
+### Methods
+
+```go
+func (x XPCServicePlist) MarshalPlist() (any, error)
+```
+
+
+```go
+func (x XPCServicePlist) MarshalYAML() (any, error)
+```
+
+
+```go
+func (x XPCServicePlist) Validate() error
+```
+Validate reports whether the keys required of an XPCService dictionary are
+present.
+
+
 
 
 

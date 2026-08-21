@@ -118,7 +118,7 @@ func WriteJSONFile(v any, elems ...string) Step {
 	return WriteFile(data, 0644, elems...)
 }
 
-// WritePlistFile returns a Step that marshals v to a plist and writes it to the specified path with the specified permissions.
+// WritePlistFile returns a Step that marshals v to a plist and writes it to the specified path.
 func WritePlistFile(v any, elems ...string) Step {
 	path := filepath.Join(elems...)
 	return writeInfoPlist(path, v)
