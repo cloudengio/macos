@@ -27,17 +27,18 @@ DefaultKeyChainPluginBundle = "cloudeng-keychain-plugin.app"
 ```go
 func BundledPluginApp(pluginBinary string) (string, bool)
 ```
-BundledPluginApp returns the path to the plugin app bundle nested inside the
-app bundle that contains the currently running executable, and whether it
-was found. This lets a host app (e.g. the keychain client) ship the plugin
-as a nested bundle at <host>.app/Contents/Library/macos-keychain-plugin.app
-and use it with no configuration.
+BundledPluginApp returns the path to the executable binary of the plugin
+app bundle nested inside the app bundle that contains the currently
+running executable, and whether it was found. This lets a host app
+(e.g. the keychain client) ship the plugin as a nested bundle at
+<host>.app/Contents/MacOS/macos-keychain-plugin.app and use it with no
+configuration.
 
 The running executable is resolved through symlinks first: it may be invoked
 via a symlink (gobundle creates one, and PATH entries are often symlinks),
 and only the resolved path reveals the real location inside the bundle.
 The executable is expected at <host>.app/Contents/MacOS/<name>, so the
-plugin bundle is a sibling under Contents/Library.
+plugin bundle is a sibling under Contents/MacOS.
 
 ### Func LocateKeychainBinaryInAppBundle
 ```go
