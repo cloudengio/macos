@@ -50,9 +50,13 @@ func IsReadable(mode fs.FileMode) bool {
 // LocateInBundle finds the requested file whose permissions are matched by
 // the matchPerms function, eg. use IsExecutable to find any file with an executable
 // bit set. It will descend into subpackages to locate the requested file.
+// If matchPerms is nil, IsExecutable is used. The returned path is absolute.
 func LocateInBundle(bundlePath, filename string, matchPerms func(fs.FileMode) bool) (string, bool) {
 	if !IsAppBundle(bundlePath) {
 		return "", false
+	}
+	if matchPerms == nil {
+		matchPerms = IsExecutable
 	}
 
 	// Confine the walk to the bundle directory: os.Root rejects any path that
@@ -110,9 +114,6 @@ func InBundle(path string, parents ...string) (string, bool) {
 	// The loop has consumed every parent, so parent is now the candidate
 	// bundle itself; taking its Dir again would step outside it.
 	appBundle := parent
-	if filepath.Ext(appBundle) != ".app" {
-		return "", false
-	}
 	if !IsAppBundle(appBundle) {
 		return "", false
 	}

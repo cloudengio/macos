@@ -140,11 +140,12 @@ func LocateKeychainBinaryInAppBundle(appBundle, binary string) (string, string, 
 	return "", "", fmt.Errorf("app bundle %q not found in /Applications or PATH: %w", appBundle, exec.ErrNotFound)
 }
 
-// BundledPluginApp returns the path to the plugin app bundle nested inside the
-// app bundle that contains the currently running executable, and whether it was
-// found. This lets a host app (e.g. the keychain client) ship the plugin as a
-// nested bundle at <host>.app/Contents/MacOS/macos-keychain-plugin.app and use
-// it with no configuration.
+// BundledPluginApp returns the path to the executable binary of the plugin app
+// bundle nested inside the app bundle that contains the currently running
+// executable, and whether it was found. This lets a host app (e.g. the keychain
+// client) ship the plugin as a nested bundle at
+// <host>.app/Contents/MacOS/macos-keychain-plugin.app and use it with no
+// configuration.
 //
 // The running executable is resolved through symlinks first: it may be invoked
 // via a symlink (gobundle creates one, and PATH entries are often symlinks), and

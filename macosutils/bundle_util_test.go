@@ -114,6 +114,8 @@ func TestLocateInBundle(t *testing.T) {
 	}{
 		{"found in Contents/MacOS", bundle, "host-binary", macosutils.IsExecutable, wantPath},
 		{"found nested", bundle, "nested-binary", macosutils.IsExecutable, nested},
+		{"nil matchPerms defaults to executable", bundle, "host-binary", nil, wantPath},
+		{"nil matchPerms rejects non-executable", bundle, "data-file", nil, ""},
 		{"not executable", bundle, "data-file", macosutils.IsExecutable, ""},
 		{"readable resource", bundle, "data-file", macosutils.IsReadable, data},
 		{"executable is also readable", bundle, "host-binary", macosutils.IsReadable, wantPath},
@@ -330,6 +332,8 @@ func TestInBundle(t *testing.T) {
 	stray := makeBundle(t, filepath.Join(outer, "Contents", "Library"), "Stray.app")
 
 	outerExe := writeFile(t, filepath.Join(outer, "Contents", "MacOS", "outer-binary"), "#!/bin/sh\n", 0700)
+	upper := makeBundle(t, tmpDir, "Upper.APP")
+	upperExe := writeFile(t, filepath.Join(upper, "Contents", "MacOS", "upper-binary"), "#!/bin/sh\n", 0700)
 	loose := writeFile(t, filepath.Join(tmpDir, "loose-binary"), "#!/bin/sh\n", 0700)
 
 	for _, tc := range []struct {
@@ -339,6 +343,7 @@ func TestInBundle(t *testing.T) {
 		want    string
 	}{
 		{"executable in a bundle", outerExe, []string{"Contents", "MacOS"}, outer},
+		{"executable in an uppercase bundle", upperExe, []string{"Contents", "MacOS"}, upper},
 		{"executable in a nested bundle", innerExe, []string{"Contents", "MacOS"}, inner},
 		{"nested bundle in Contents/MacOS", inner, []string{"Contents", "MacOS"}, outer},
 		{"nested bundle in Contents/Library", stray, []string{"Contents", "MacOS"}, ""},

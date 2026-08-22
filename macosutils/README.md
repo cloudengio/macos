@@ -68,7 +68,8 @@ func LocateInBundle(bundlePath, filename string, matchPerms func(fs.FileMode) bo
 LocateInBundle finds the requested file whose permissions are matched by
 the matchPerms function, eg. use IsExecutable to find any file with an
 executable bit set. It will descend into subpackages to locate the requested
-file.
+file. If matchPerms is nil, IsExecutable is used. The returned path is
+absolute.
 
 ### Func LookPathBundle
 ```go
