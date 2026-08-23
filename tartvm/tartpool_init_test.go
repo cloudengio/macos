@@ -112,7 +112,7 @@ func init() {
 // tartLookup calls "tart list --format json" and returns the entry for name,
 // or (zero, false) if the VM is not present.
 func tartLookup(ctx context.Context, name string) (tartvm.ListEntry, bool, error) {
-	all, err := tartvm.ListAll(ctx)
+	all, err := tartvm.ListAll(ctx, "tart")
 	if err != nil {
 		return tartvm.ListEntry{}, false, fmt.Errorf("tart list: %v", err)
 	}

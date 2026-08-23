@@ -57,6 +57,7 @@ type Config struct {
 	RunBackoff       ratecontrol.ExponentialBackoffConfig `yaml:"run_backoff" doc:"The backoff bounding how long to wait for the VM to reach a running state after Start is called."`
 	ForceStopBackoff ratecontrol.ExponentialBackoffConfig `yaml:"force_stop_backoff" doc:"The backoff bounding forcefully stopping a VM when a run operation, or other operation, fails and the error recovery needs to stop the VM."`
 	RunOptions       []string                             `yaml:"run_options,flow" doc:"Additional options to pass to the tart run command."`
+	TartBinary       string                               `yaml:"tart_binary" doc:"Path to the tart binary, defaults to 'tart' on PATH."`
 }
 
 func (c *Config) Options() []Option {
@@ -71,11 +72,16 @@ func (c *Config) Options() []Option {
 			runOpts = DefaultRunOptions()
 		}
 	}
+	binary := c.TartBinary
+	if binary == "" {
+		binary = DefaultTartBinary
+	}
 	return []Option{
 		WithStateBackoff(c.StateBackoff),
 		WithRunBackoff(c.RunBackoff),
 		WithForceStopBackoff(c.ForceStopBackoff),
 		WithRunOptions(runOpts...),
+		WithTartBinary(binary),
 	}
 }
 
@@ -90,6 +96,7 @@ type options struct {
 	runOptions       []string
 	logger           *slog.Logger
 	ipAtStart        bool
+	tartBinary       string
 }
 
 // WithStateBackoff sets the backoff to use when polling the state of the VM
@@ -149,6 +156,12 @@ func WithLogger(logger *slog.Logger) Option {
 	}
 }
 
+func WithTartBinary(tartBinary string) Option {
+	return func(o *options) {
+		o.tartBinary = tartBinary
+	}
+}
+
 // WithObtainIPAtStart sets whether to obtain the IP address of the VM at start time,
 // disable for faster execution of Start and with the IP address obtained on demand.
 func WithObtainIPAtStart(ipAtStart bool) Option {
@@ -159,6 +172,7 @@ func WithObtainIPAtStart(ipAtStart bool) Option {
 
 const (
 	DefaultOutputBufferSize = 16 * 1024 // 16KiB
+	DefaultTartBinary       = "tart"
 	gracePeriod             = 5 * time.Second
 )
 
@@ -301,11 +315,11 @@ func (inst *Instance) runSyncExclusive(ctx context.Context, action vms.Action, i
 	stdoutBuf := bytes.NewBuffer(make([]byte, 0, 1024))
 	stderrBuf := executil.NewTailWriter(1024)
 	start := time.Now()
-	cmd := exec.CommandContext(ctx, "tart", args...)
+	cmd := exec.CommandContext(ctx, inst.opts.tartBinary, args...)
 	cmd.Stdout = stdoutBuf
 	cmd.Stderr = stderrBuf
 	err := cmd.Run()
-	inst.logger.Info("tart command completed", "args", args, "stderr", string(stderrBuf.Bytes()), "error", err, "duration", time.Since(start).String())
+	inst.logger.Info("tart command completed", "tart", inst.opts.tartBinary, "args", args, "stderr", string(stderrBuf.Bytes()), "error", err, "duration", time.Since(start).String())
 	if err != nil {
 		inst.setState(prev)
 		return convertError(args, string(stderrBuf.Bytes()), err)
@@ -382,12 +396,12 @@ func (inst *Instance) Start(ctx context.Context, stdout, stderr io.Writer) error
 	prev := inst.setState(vms.StateStarting)
 
 	stderrCopy := executil.NewTailWriter(1024)
-	cmd := exec.CommandContext(ctx, "tart", args...)
+	cmd := exec.CommandContext(ctx, inst.opts.tartBinary, args...)
 	cmd.Stdout = stdout
 	cmd.Stderr = io.MultiWriter(stderr, stderrCopy)
 	cmd.Stdin = nil // Detach stdin entirely
 	if err := cmd.Start(); err != nil {
-		inst.logger.Error("tart run", "args", args, "error", err)
+		inst.logger.Error("tart run", "tart", inst.opts.tartBinary, "args", args, "error", err)
 		return inst.cmdStartFailed(ctx, prev, fmt.Errorf("tart %s: %w", strings.Join(args, " "), err))
 	}
 	inst.logger.Info("tart run cmd.Start called", "args", args, "pid", cmd.Process.Pid)
@@ -419,7 +433,7 @@ func (inst *Instance) Start(ctx context.Context, stdout, stderr io.Writer) error
 	inst.asyncWait = executil.NewAsyncWait(cmd)
 	inst.runStderr = stderrCopy
 	inst.stateMu.Unlock()
-	inst.logger.Info("tart run completed", "args", args, "ip", ip, "pid", cmd.Process.Pid, "duration", time.Since(start).String())
+	inst.logger.Info("tart run completed", "tart", inst.opts.tartBinary, "args", args, "ip", ip, "pid", cmd.Process.Pid, "duration", time.Since(start).String())
 	return nil
 }
 
@@ -428,7 +442,7 @@ func (inst *Instance) runForceStop(ctx context.Context) error {
 		ctx = context.WithoutCancel(ctx)
 	}
 	timeout := inst.opts.forceStopBackoff.TotalTimeout()
-	out, err := exec.CommandContext(ctx, "tart", "stop", inst.name, "--timeout", strconv.Itoa(durationSeconds(timeout))).CombinedOutput() //nolint:gosec // G204 false positive
+	out, err := exec.CommandContext(ctx, inst.opts.tartBinary, "stop", inst.name, "--timeout", strconv.Itoa(durationSeconds(timeout))).CombinedOutput() //nolint:gosec // G204 false positive
 	if err != nil {
 		if isAlreadyStoppedErrorMsg(string(out)) {
 			return nil
@@ -512,12 +526,12 @@ func (inst *Instance) handleStopSuspend(ctx context.Context, args ...string) (ru
 	start := time.Now()
 	stdoutBuf := bytes.NewBuffer(make([]byte, 0, 1024))
 	stderrBuf := executil.NewTailWriter(1024)
-	cmd := exec.CommandContext(ctx, "tart", args...)
+	cmd := exec.CommandContext(ctx, inst.opts.tartBinary, args...)
 	cmd.Stdout = stdoutBuf
 	cmd.Stderr = stderrBuf
 	err = cmd.Run()
 	stderr := string(stderrBuf.Bytes())
-	inst.logger.Info("tart command completed", "args", args, "stderr", stderr, "error", err, "duration", time.Since(start).String())
+	inst.logger.Info("tart command completed", "tart", inst.opts.tartBinary, "args", args, "stderr", stderr, "error", err, "duration", time.Since(start).String())
 	if err != nil {
 		if isAlreadyStoppedErrorMsg(stderr) {
 			return nil, nil
@@ -614,7 +628,7 @@ func (inst *Instance) Exec(ctx context.Context, stdout, stderr io.Writer, cmd st
 		return fmt.Errorf("exec only available for running VMs, current state: %s", state)
 	}
 	allArgs := append([]string{"exec", inst.name, cmd}, args...)
-	c := exec.CommandContext(ctx, "tart", allArgs...)
+	c := exec.CommandContext(ctx, inst.opts.tartBinary, allArgs...)
 	c.Stdout = stdout
 	c.Stderr = stderr
 	if err := c.Run(); err != nil {
@@ -630,18 +644,18 @@ func (inst *Instance) Exec(ctx context.Context, stdout, stderr io.Writer, cmd st
 func (inst *Instance) waitForReadyUsingExec(ctx context.Context, backoff ratecontrol.Backoff) error {
 	timeout := inst.opts.runBackoff.TotalTimeout()
 	found := func(ctx context.Context) (bool, error) {
-		return waitForReadyUsingExecOne(ctx, inst.logger, inst.name, timeout)
+		return waitForReadyUsingExecOne(ctx, inst.opts.tartBinary, inst.logger, inst.name, timeout)
 	}
 	return executil.WaitForBackoff(ctx, backoff, found)
 }
 
 // waitForReadyUsingExecOne performs a single tart exec attempt with the specified timeout.
-func waitForReadyUsingExecOne(ctx context.Context, logger *slog.Logger, name string, timeout time.Duration) (bool, error) {
+func waitForReadyUsingExecOne(ctx context.Context, binary string, logger *slog.Logger, name string, timeout time.Duration) (bool, error) {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	out := executil.NewTailWriter(1024)
 	now := strconv.FormatInt(time.Now().UnixNano(), 10)
-	cmd := exec.CommandContext(ctx, "tart", "exec", name, "echo", now) //nolint:gosec // G204 false positive
+	cmd := exec.CommandContext(ctx, binary, "exec", name, "echo", now) //nolint:gosec // G204 false positive
 	cmd.Stdout = out
 	cmd.Stderr = out
 	cmd.Stdin = nil // Detach stdin entirely
@@ -660,7 +674,7 @@ func waitForReadyUsingExecOne(ctx context.Context, logger *slog.Logger, name str
 func (inst *Instance) runIPWait(ctx context.Context) (string, error) {
 	timeout := inst.opts.runBackoff.TotalTimeout()
 	args := []string{"ip", inst.name, "--wait", strconv.Itoa(durationSeconds(timeout))}
-	cmd := exec.CommandContext(ctx, "tart", args...)
+	cmd := exec.CommandContext(ctx, inst.opts.tartBinary, args...)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("tart %s: (timeout: %v): %w", strings.Join(args, " "), timeout, err)
@@ -668,8 +682,8 @@ func (inst *Instance) runIPWait(ctx context.Context) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-func getStateUsingList(ctx context.Context, name, state string) (bool, error) {
-	all, err := ListAll(ctx)
+func getStateUsingList(ctx context.Context, binary, name, state string) (bool, error) {
+	all, err := ListAll(ctx, binary)
 	if err != nil {
 		return false, fmt.Errorf("failed to list tart VMs: %w", err)
 	}
@@ -682,7 +696,7 @@ func getStateUsingList(ctx context.Context, name, state string) (bool, error) {
 
 func (inst *Instance) waitForTartState(ctx context.Context, state string, backoff ratecontrol.Backoff) error {
 	found := func(ctx context.Context) (bool, error) {
-		return getStateUsingList(ctx, inst.name, state)
+		return getStateUsingList(ctx, inst.opts.tartBinary, inst.name, state)
 	}
 	return executil.WaitForBackoff(ctx, backoff, found)
 }

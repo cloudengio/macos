@@ -8,10 +8,11 @@ Package tartvm implements cloudeng.io/vms.Instance using the tart CLI on
 macOS.
 
 ## Constants
-### DefaultOutputBufferSize
+### DefaultOutputBufferSize, DefaultTartBinary
 ```go
 DefaultOutputBufferSize = 16 * 1024 // 16KiB
 
+DefaultTartBinary = "tart"
 
 ```
 
@@ -87,6 +88,7 @@ type Config struct {
 	RunBackoff       ratecontrol.ExponentialBackoffConfig `yaml:"run_backoff" doc:"The backoff bounding how long to wait for the VM to reach a running state after Start is called."`
 	ForceStopBackoff ratecontrol.ExponentialBackoffConfig `yaml:"force_stop_backoff" doc:"The backoff bounding forcefully stopping a VM when a run operation, or other operation, fails and the error recovery needs to stop the VM."`
 	RunOptions       []string                             `yaml:"run_options,flow" doc:"Additional options to pass to the tart run command."`
+	TartBinary       string                               `yaml:"tart_binary" doc:"Path to the tart binary, defaults to 'tart' on PATH."`
 }
 ```
 Config contains configuration for tart VM pools.
@@ -207,9 +209,10 @@ type ListEntries []ListEntry
 ### Functions
 
 ```go
-func ListAll(ctx context.Context) (ListEntries, error)
+func ListAll(ctx context.Context, tartBinary string) (ListEntries, error)
 ```
 ListAll calls "tart list --format json" and returns the entries.
+If tartBinary is empty then DefaultTartBinary is used.
 
 
 
@@ -317,6 +320,11 @@ when waiting for state transitions, network availability, etc.
     The default is DefaultStateBackoff().
 
 
+```go
+func WithTartBinary(tartBinary string) Option
+```
+
+
 
 
 ### Type Provider
@@ -392,6 +400,13 @@ func WithPoolName(name string) ProviderOption
 ```
 WithPoolName sets the pool name reported in VMInfo.Pool for the Provider's
 VMs.
+
+
+```go
+func WithProviderTartBinary(path string) ProviderOption
+```
+WithProviderTartBinary sets the tart binary path to use for all Provider
+operations.
 
 
 

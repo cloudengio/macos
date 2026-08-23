@@ -67,11 +67,15 @@ func (e ListEntries) LookupSourceName(source, name string) (ListEntry, bool) {
 	return ListEntry{}, false
 }
 
-// ListAll calls "tart list --format json" and returns the entries.
-func ListAll(ctx context.Context) (ListEntries, error) {
+// ListAll calls "tart list --format json" and returns the entries. If tartBinary
+// is empty then DefaultTartBinary is used.
+func ListAll(ctx context.Context, tartBinary string) (ListEntries, error) {
+	if tartBinary == "" {
+		tartBinary = DefaultTartBinary
+	}
 	stdoutBuf := bytes.NewBuffer(make([]byte, 0, 1024))
 	stderrBuf := executil.NewTailWriter(1024)
-	cmd := exec.CommandContext(ctx, "tart", "list", "--format", "json")
+	cmd := exec.CommandContext(ctx, tartBinary, "list", "--format", "json")
 	cmd.Stdout = stdoutBuf
 	cmd.Stderr = stderrBuf
 	err := cmd.Run()

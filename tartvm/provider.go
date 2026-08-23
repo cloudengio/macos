@@ -33,6 +33,7 @@ type Provider struct {
 	constructor Constructor
 	prefix      string // if set, only VMs whose name has this prefix are managed
 	pool        string // optional pool name used to tag VMInfo.Pool
+	tartBinary  string // optional tart binary path, defaults to "tart"
 }
 
 var _ vmspool.Provider = (*Provider)(nil)
@@ -52,12 +53,20 @@ func WithPoolName(name string) ProviderOption {
 	return func(p *Provider) { p.pool = name }
 }
 
+// WithProviderTartBinary sets the tart binary path to use for all Provider operations.
+func WithProviderTartBinary(path string) ProviderOption {
+	return func(p *Provider) { p.tartBinary = path }
+}
+
 // NewProvider returns a Provider that constructs VMs with constructor and
 // implements the remaining vmspool.Provider methods via the tart CLI.
 func NewProvider(constructor Constructor, opts ...ProviderOption) *Provider {
 	p := &Provider{constructor: constructor}
 	for _, opt := range opts {
 		opt(p)
+	}
+	if p.tartBinary == "" {
+		p.tartBinary = DefaultTartBinary
 	}
 	return p
 }
@@ -77,7 +86,7 @@ const tartLocalSource = "local"
 // List implements vmspool.Provider, returning the local tart VMs whose names
 // match the configured prefix.
 func (p *Provider) List(ctx context.Context) ([]vmspool.VMInfo, error) {
-	all, err := ListAll(ctx)
+	all, err := ListAll(ctx, p.tartBinary)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +112,7 @@ func (p *Provider) List(ctx context.Context) ([]vmspool.VMInfo, error) {
 // Get implements vmspool.Provider, returning the resources allocated to a single
 // VM via "tart get".
 func (p *Provider) Get(ctx context.Context, vmName string) (vmspool.VMDetail, error) {
-	out, err := runTartOut(ctx, "get", vmName, "--format", "json")
+	out, err := runTartOut(ctx, p.tartBinary, "get", vmName, "--format", "json")
 	if err != nil {
 		return vmspool.VMDetail{}, err
 	}
@@ -146,13 +155,13 @@ func (p *Provider) Delete(ctx context.Context, stopTimeout time.Duration) ([]str
 				secs := int((stopTimeout + time.Second - 1) / time.Second)
 				args = append(args, "--timeout", strconv.Itoa(secs))
 			}
-			if err := runTart(ctx, args...); err != nil {
+			if err := runTart(ctx, p.tartBinary, args...); err != nil {
 				// Report the failure but still attempt the delete below; the VM
 				// may have exited in the meantime.
 				errs.Append(err)
 			}
 		}
-		if err := runTart(ctx, "delete", vm.Name); err != nil {
+		if err := runTart(ctx, p.tartBinary, "delete", vm.Name); err != nil {
 			errs.Append(err)
 			continue
 		}
@@ -161,14 +170,14 @@ func (p *Provider) Delete(ctx context.Context, stopTimeout time.Duration) ([]str
 	return deleted, errs.Err()
 }
 
-func runTart(ctx context.Context, args ...string) error {
-	_, err := runTartOut(ctx, args...)
+func runTart(ctx context.Context, tartBinary string, args ...string) error {
+	_, err := runTartOut(ctx, tartBinary, args...)
 	return err
 }
 
-func runTartOut(ctx context.Context, args ...string) ([]byte, error) {
+func runTartOut(ctx context.Context, tartBinary string, args ...string) ([]byte, error) {
 	var stdout, stderr bytes.Buffer
-	cmd := exec.CommandContext(ctx, "tart", args...) //nolint:gosec // G204: args are caller-controlled, not user input.
+	cmd := exec.CommandContext(ctx, tartBinary, args...) //nolint:gosec // G204: args are caller-controlled, not user input.
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
