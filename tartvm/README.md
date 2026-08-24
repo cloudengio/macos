@@ -88,7 +88,7 @@ type Config struct {
 	RunBackoff       ratecontrol.ExponentialBackoffConfig `yaml:"run_backoff" doc:"The backoff bounding how long to wait for the VM to reach a running state after Start is called."`
 	ForceStopBackoff ratecontrol.ExponentialBackoffConfig `yaml:"force_stop_backoff" doc:"The backoff bounding forcefully stopping a VM when a run operation, or other operation, fails and the error recovery needs to stop the VM."`
 	RunOptions       []string                             `yaml:"run_options,flow" doc:"Additional options to pass to the tart run command."`
-	TartBinary       string                               `yaml:"tart_binary" doc:"Path to the tart binary, defaults to 'tart' on PATH."`
+	TartBinary       string                               `yaml:"binary" doc:"Path to the tart binary, defaults to 'tart' on PATH."`
 }
 ```
 Config contains configuration for tart VM pools.

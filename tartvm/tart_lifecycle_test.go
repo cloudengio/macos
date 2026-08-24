@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"cloudeng.io/cicd"
-	tarvm "cloudeng.io/macos/tartvm"
+	"cloudeng.io/macos/tartvm"
 	"cloudeng.io/vms"
 	"cloudeng.io/vms/vmstestutil"
 )
@@ -42,7 +42,7 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "tart CLI not found in PATH; skipping tests")
 		os.Exit(1)
 	}
-	images, err := tarvm.ListAll(ctx, tb)
+	images, err := tartvm.ListAll(ctx, tb)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "tart list failed: %v; skipping tests\n", err)
 		os.Exit(0)
@@ -56,7 +56,7 @@ func TestMain(m *testing.M) {
 	}
 	code := m.Run()
 
-	all, _ := tarvm.ListAll(ctx, tb)
+	all, _ := tartvm.ListAll(ctx, tb)
 	for _, entry := range all {
 		if strings.HasPrefix(entry.Name, "testlifecycle") || strings.HasPrefix(entry.Name, "testpool") {
 			cleanup(ctx, tb, entry)
@@ -70,7 +70,7 @@ func run(ctx context.Context, tb string, args ...string) ([]byte, error) {
 	return exec.CommandContext(ctx, tb, args...).CombinedOutput() // #nosec G204
 }
 
-func cleanup(ctx context.Context, tb string, entry tarvm.ListEntry) {
+func cleanup(ctx context.Context, tb string, entry tartvm.ListEntry) {
 	if entry.State == "running" {
 		if out, err := run(ctx, tb, "stop", entry.Name); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to stop tart VM %q: %v\nOutput: %s\n", entry.Name, err, out)
@@ -94,7 +94,7 @@ func vmName(t *testing.T) string {
 }
 
 // cleanupVM stops (if running) and deletes the VM at test teardown.
-func cleanupVM(t *testing.T, inst *tarvm.Instance) {
+func cleanupVM(t *testing.T, inst *tartvm.Instance) {
 	t.Helper()
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
