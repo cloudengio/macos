@@ -84,6 +84,39 @@ func LocateInBundle(bundlePath, filename string, matchPerms func(fs.FileMode) bo
 	return location, location != ""
 }
 
+// LocateInNestedBundle finds the requested file in its immediately enclosing
+// bundle specified by bundle, and if not found, then in the bundle enclosing
+// that one, and so on, until a match is found or a non-bundle directory is reached.
+// The returned path is absolute. The parents are the expected names of the enclosing
+// directories, starting with the top-level directory directly inside the bundle
+// and ending with the immediate parent of bundle (i.e. top-down order, matching InBundle).
+// If any of the parents do not match, or if the top-level parent is not a bundle,
+// then no match is found. The search stops at the first match, so if a file exists
+// in multiple bundles, only the innermost one is returned.
+//
+// This function is useful when a file may be located in a bundle nested inside
+// another bundle, and you want to find it starting from the inner bundle and
+// searching outwards. For example, if you have an app bundle that contains a
+// nested framework bundle, and you want to locate a resource file that may be
+// in either the framework or the app bundle, you can use this function to search
+// for it starting from the framework bundle.
+func LocateInNestedBundle(bundle, filename string, matchPerms func(fs.FileMode) bool, parents ...string) (string, bool) {
+	for {
+		var ok bool
+		bundle, ok = InBundle(bundle, parents...)
+		if !ok {
+			return "", false
+		}
+		if fp, ok := LocateInBundle(bundle, filename, matchPerms); ok {
+			return fp, true
+		}
+		// Continue from the bundle itself: InBundle resolves a path to the
+		// bundle enclosing it, so the bundle just searched is the next path to
+		// resolve. Taking its Dir instead would step to the enclosing
+		// Contents/MacOS, which is not itself in a Contents/MacOS.
+	}
+}
+
 // ExecutablePath returns the path of the executable that started the
 // current process, following softlinks.
 func ExecutablePath() (string, error) {

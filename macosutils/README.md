@@ -71,6 +71,28 @@ executable bit set. It will descend into subpackages to locate the requested
 file. If matchPerms is nil, IsExecutable is used. The returned path is
 absolute.
 
+### Func LocateInNestedBundle
+```go
+func LocateInNestedBundle(bundle, filename string, matchPerms func(fs.FileMode) bool, parents ...string) (string, bool)
+```
+LocateInNestedBundle finds the requested file in its immediately enclosing
+bundle specified by bundle, and if not found, then in the bundle enclosing
+that one, and so on, until a match is found or a non-bundle directory is
+reached. The returned path is absolute. The parents are the expected names
+of the enclosing directories, starting with the top-level directory directly
+inside the bundle and ending with the immediate parent of bundle (i.e.
+top-down order, matching InBundle). If any of the parents do not match,
+or if the top-level parent is not a bundle, then no match is found. The
+search stops at the first match, so if a file exists in multiple bundles,
+only the innermost one is returned.
+
+This function is useful when a file may be located in a bundle nested inside
+another bundle, and you want to find it starting from the inner bundle and
+searching outwards. For example, if you have an app bundle that contains a
+nested framework bundle, and you want to locate a resource file that may
+be in either the framework or the app bundle, you can use this function to
+search for it starting from the framework bundle.
+
 ### Func LookPathBundle
 ```go
 func LookPathBundle(bundle, pathList string) string

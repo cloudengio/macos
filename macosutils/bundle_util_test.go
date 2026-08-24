@@ -487,3 +487,50 @@ func TestProcessInBundleChild(t *testing.T) {
 		t.Errorf("LocateInBundle(no-such-plugin) = %q, %v, want \"\", false", got, ok)
 	}
 }
+
+// TestLocateInNestedBundle builds the layout the orchestrator ships — a bundle
+// nested in the outer bundle's Contents/MacOS — and searches outwards from a
+// file inside the nested bundle.
+func TestLocateInNestedBundle(t *testing.T) {
+	tmpDir := t.TempDir()
+	outer := makeBundle(t, tmpDir, "Outer.app")
+	inner := makeBundle(t, filepath.Join(outer, "Contents", "MacOS"), "Inner.app")
+
+	// The starting point: an executable inside the nested bundle.
+	exe := writeFile(t, filepath.Join(inner, "Contents", "MacOS", "orchestrator"), "#!/bin/sh\n", 0700)
+	// Only the outer bundle holds outerFile, so finding it requires walking out
+	// of the nested bundle; innerFile is in the nested bundle itself.
+	outerFile := writeFile(t, filepath.Join(outer, "Contents", "Resources", "outer-resource.yml"), "outer\n", 0600)
+	innerFile := writeFile(t, filepath.Join(inner, "Contents", "Resources", "inner-resource.yml"), "inner\n", 0600)
+	// A file of the same name in both: the innermost wins.
+	writeFile(t, filepath.Join(outer, "Contents", "Resources", "shared.yml"), "outer\n", 0600)
+	innerShared := writeFile(t, filepath.Join(inner, "Contents", "Resources", "shared.yml"), "inner\n", 0600)
+	loose := writeFile(t, filepath.Join(tmpDir, "loose"), "#!/bin/sh\n", 0700)
+
+	for _, tc := range []struct {
+		name    string
+		start   string
+		file    string
+		matches func(fs.FileMode) bool
+		parents []string
+		want    string
+	}{
+		{"in the enclosing bundle", exe, "inner-resource.yml", macosutils.IsReadable, []string{"Contents", "MacOS"}, innerFile},
+		{"in an outer bundle", exe, "outer-resource.yml", macosutils.IsReadable, []string{"Contents", "MacOS"}, outerFile},
+		{"innermost wins", exe, "shared.yml", macosutils.IsReadable, []string{"Contents", "MacOS"}, innerShared},
+		{"the executable itself", exe, "orchestrator", macosutils.IsExecutable, []string{"Contents", "MacOS"}, exe},
+		{"permissions not matched", exe, "outer-resource.yml", macosutils.IsExecutable, []string{"Contents", "MacOS"}, ""},
+		{"no such file", exe, "no-such-file.yml", macosutils.IsReadable, []string{"Contents", "MacOS"}, ""},
+		{"not in a bundle", loose, "outer-resource.yml", macosutils.IsReadable, []string{"Contents", "MacOS"}, ""},
+		{"wrong parents", exe, "outer-resource.yml", macosutils.IsReadable, []string{"Contents", "Resources"}, ""},
+		{"no parents", exe, "outer-resource.yml", macosutils.IsReadable, nil, ""},
+	} {
+		got, ok := macosutils.LocateInNestedBundle(tc.start, tc.file, tc.matches, tc.parents...)
+		if got != tc.want {
+			t.Errorf("%v: LocateInNestedBundle(%q, %q, %v) = %q, want %q", tc.name, tc.start, tc.file, tc.parents, got, tc.want)
+		}
+		if want := tc.want != ""; ok != want {
+			t.Errorf("%v: LocateInNestedBundle(%q, %q, %v) ok = %v, want %v", tc.name, tc.start, tc.file, tc.parents, ok, want)
+		}
+	}
+}
