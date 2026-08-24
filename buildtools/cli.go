@@ -46,10 +46,14 @@ func (f CommonFlags) CommandRunnerOptions() []CommandRunnerOption {
 
 // StepRunnerOptions returns options for the StepRunner based on the flags.
 func (f CommonFlags) StepRunnerOptions() []StepRunnerOption {
+	var opts []StepRunnerOption
 	if f.Timing {
-		return []StepRunnerOption{WithStepTiming(f.Timing)}
+		opts = append(opts, WithStepTiming(f.Timing))
 	}
-	return nil
+	if f.Verbose {
+		opts = append(opts, WithStepVerbose(f.Verbose))
+	}
+	return opts
 }
 
 // ParseFile parses the specified config file into cfg.
