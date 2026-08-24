@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"cloudeng.io/cicd"
-	tarvm "cloudeng.io/macos/tartvm"
+	"cloudeng.io/macos/tartvm"
 	"cloudeng.io/vms"
 	"cloudeng.io/vms/vmstestutil"
 )
@@ -37,11 +37,12 @@ func TestMain(m *testing.M) {
 		fmt.Fprintln(os.Stderr, "tart is only supported on macOS; skipping tests")
 		os.Exit(0)
 	}
-	if _, err := exec.LookPath("tart"); err != nil {
+	tb, err := exec.LookPath("tart")
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "tart CLI not found in PATH; skipping tests")
 		os.Exit(1)
 	}
-	images, err := tarvm.ListAll(ctx)
+	images, err := tartvm.ListAll(ctx, tb)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "tart list failed: %v; skipping tests\n", err)
 		os.Exit(0)
@@ -55,27 +56,27 @@ func TestMain(m *testing.M) {
 	}
 	code := m.Run()
 
-	all, _ := tarvm.ListAll(ctx)
+	all, _ := tartvm.ListAll(ctx, tb)
 	for _, entry := range all {
 		if strings.HasPrefix(entry.Name, "testlifecycle") || strings.HasPrefix(entry.Name, "testpool") {
-			cleanup(ctx, entry)
+			cleanup(ctx, tb, entry)
 		}
 	}
 
 	os.Exit(code)
 }
 
-func run(ctx context.Context, args ...string) ([]byte, error) {
-	return exec.CommandContext(ctx, "tart", args...).CombinedOutput() // #nosec G204
+func run(ctx context.Context, tb string, args ...string) ([]byte, error) {
+	return exec.CommandContext(ctx, tb, args...).CombinedOutput() // #nosec G204
 }
 
-func cleanup(ctx context.Context, entry tarvm.ListEntry) {
+func cleanup(ctx context.Context, tb string, entry tartvm.ListEntry) {
 	if entry.State == "running" {
-		if out, err := run(ctx, "stop", entry.Name); err != nil {
+		if out, err := run(ctx, tb, "stop", entry.Name); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to stop tart VM %q: %v\nOutput: %s\n", entry.Name, err, out)
 		}
 	}
-	if out, err := run(ctx, "delete", entry.Name); err != nil {
+	if out, err := run(ctx, tb, "delete", entry.Name); err != nil {
 		fmt.Fprintf(os.Stderr, "failed to delete tart VM %q: %v\nOutput: %s\n", entry.Name, err, out)
 	}
 }
@@ -93,7 +94,7 @@ func vmName(t *testing.T) string {
 }
 
 // cleanupVM stops (if running) and deletes the VM at test teardown.
-func cleanupVM(t *testing.T, inst *tarvm.Instance) {
+func cleanupVM(t *testing.T, inst *tartvm.Instance) {
 	t.Helper()
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
