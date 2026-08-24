@@ -320,7 +320,7 @@ func (inst *Instance) runSyncExclusive(ctx context.Context, action vms.Action, i
 	stdoutBuf := bytes.NewBuffer(make([]byte, 0, 1024))
 	stderrBuf := executil.NewTailWriter(1024)
 	start := time.Now()
-	cmd := exec.CommandContext(ctx, inst.opts.tartBinary, args...)
+	cmd := exec.CommandContext(ctx, inst.opts.tartBinary, args...) //nolint:gosec // G204 false positive
 	cmd.Stdout = stdoutBuf
 	cmd.Stderr = stderrBuf
 	err := cmd.Run()
@@ -401,7 +401,7 @@ func (inst *Instance) Start(ctx context.Context, stdout, stderr io.Writer) error
 	prev := inst.setState(vms.StateStarting)
 
 	stderrCopy := executil.NewTailWriter(1024)
-	cmd := exec.CommandContext(ctx, inst.opts.tartBinary, args...)
+	cmd := exec.CommandContext(ctx, inst.opts.tartBinary, args...) //nolint:gosec // G204 false positive
 	cmd.Stdout = stdout
 	cmd.Stderr = io.MultiWriter(stderr, stderrCopy)
 	cmd.Stdin = nil // Detach stdin entirely
@@ -531,7 +531,7 @@ func (inst *Instance) handleStopSuspend(ctx context.Context, args ...string) (ru
 	start := time.Now()
 	stdoutBuf := bytes.NewBuffer(make([]byte, 0, 1024))
 	stderrBuf := executil.NewTailWriter(1024)
-	cmd := exec.CommandContext(ctx, inst.opts.tartBinary, args...)
+	cmd := exec.CommandContext(ctx, inst.opts.tartBinary, args...) //nolint:gosec // G204 false positive
 	cmd.Stdout = stdoutBuf
 	cmd.Stderr = stderrBuf
 	err = cmd.Run()
@@ -633,7 +633,7 @@ func (inst *Instance) Exec(ctx context.Context, stdout, stderr io.Writer, cmd st
 		return fmt.Errorf("exec only available for running VMs, current state: %s", state)
 	}
 	allArgs := append([]string{"exec", inst.name, cmd}, args...)
-	c := exec.CommandContext(ctx, inst.opts.tartBinary, allArgs...)
+	c := exec.CommandContext(ctx, inst.opts.tartBinary, allArgs...) //nolint:gosec // G204 false positive
 	c.Stdout = stdout
 	c.Stderr = stderr
 	if err := c.Run(); err != nil {
@@ -679,7 +679,7 @@ func waitForReadyUsingExecOne(ctx context.Context, binary string, logger *slog.L
 func (inst *Instance) runIPWait(ctx context.Context) (string, error) {
 	timeout := inst.opts.runBackoff.TotalTimeout()
 	args := []string{"ip", inst.name, "--wait", strconv.Itoa(durationSeconds(timeout))}
-	cmd := exec.CommandContext(ctx, inst.opts.tartBinary, args...)
+	cmd := exec.CommandContext(ctx, inst.opts.tartBinary, args...) //nolint:gosec // G204 false positive
 	out, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("tart %s: (timeout: %v): %w", strings.Join(args, " "), timeout, err)
