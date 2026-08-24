@@ -11,6 +11,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -273,5 +274,87 @@ func TestLaunchAppSecondAttemptFails(t *testing.T) {
 	err := l.LaunchApp(ctx, shell, "-c", "true")
 	if !errors.Is(err, macosutils.ErrAlreadyLaunched) {
 		t.Errorf("second LaunchApp: got %v, want %v", err, macosutils.ErrAlreadyLaunched)
+	}
+}
+
+func TestTailBytes(t *testing.T) {
+	tmpDir := t.TempDir()
+	content := []byte("hello world, testing tail bytes functionality!")
+	filePath := filepath.Join(tmpDir, "test.txt")
+	if err := os.WriteFile(filePath, content, 0600); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	emptyFilePath := filepath.Join(tmpDir, "empty.txt")
+	if err := os.WriteFile(emptyFilePath, []byte{}, 0600); err != nil {
+		t.Fatalf("WriteFile empty: %v", err)
+	}
+
+	for _, tc := range []struct {
+		name    string
+		file    string
+		n       int
+		want    []byte
+		wantErr bool
+	}{
+		{
+			name:    "file larger than n",
+			file:    filePath,
+			n:       14,
+			want:    []byte("functionality!"),
+			wantErr: false,
+		},
+		{
+			name:    "file equal to n",
+			file:    filePath,
+			n:       len(content),
+			want:    content,
+			wantErr: false,
+		},
+		{
+			name:    "file smaller than n",
+			file:    filePath,
+			n:       len(content) + 50,
+			want:    content,
+			wantErr: false,
+		},
+		{
+			name:    "empty file with positive n",
+			file:    emptyFilePath,
+			n:       10,
+			want:    []byte{},
+			wantErr: false,
+		},
+		{
+			name:    "zero n",
+			file:    filePath,
+			n:       0,
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name:    "negative n",
+			file:    filePath,
+			n:       -5,
+			want:    nil,
+			wantErr: false,
+		},
+		{
+			name:    "nonexistent file",
+			file:    filepath.Join(tmpDir, "nonexistent.txt"),
+			n:       10,
+			want:    nil,
+			wantErr: true,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := macosutils.TailBytes(tc.file, tc.n)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("TailBytes(%q, %d): got error %v, wantErr %v", tc.file, tc.n, err, tc.wantErr)
+			}
+			if !bytes.Equal(got, tc.want) {
+				t.Errorf("TailBytes(%q, %d): got %q, want %q", tc.file, tc.n, string(got), string(tc.want))
+			}
+		})
 	}
 }

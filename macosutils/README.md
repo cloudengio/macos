@@ -107,6 +107,13 @@ so that the same heuristic resolves the inner bundle to the outer one.
 A bundle placed in Contents/Library is reachable by LocateInBundle, which
 walks the whole tree, but not by InBundle or ProcessInBundle.
 
+### Func TailBytes
+```go
+func TailBytes(filename string, n int) ([]byte, error)
+```
+TailBytes returns the last n bytes of the specified file. If n <= 0,
+it returns nil, nil.
+
 
 
 ## Types
@@ -121,16 +128,20 @@ LaunchOption defines a function type for configuring the Launcher.
 ```go
 func WithCmdEnv(env func() []string) LaunchOption
 ```
+WithCmdEnv sets the environment variables for the command to be launched.
 
 
 ```go
 func WithStdoutStderr(stdout, stderr io.Writer) LaunchOption
 ```
+WithStdoutStderr sets the stdout and stderr writers for the launched
+command.
 
 
 ```go
 func WithWorkingDir(dir string) LaunchOption
 ```
+WithWorkingDir sets the working directory for the command to be launched.
 
 
 
