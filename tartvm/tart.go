@@ -61,7 +61,6 @@ type Config struct {
 }
 
 func (c *Config) Options() []Option {
-	fmt.Printf("tart config: %+v\n", *c)
 	runOpts := c.RunOptions
 	if len(runOpts) == 0 {
 		switch c.OS {
@@ -77,7 +76,6 @@ func (c *Config) Options() []Option {
 	if binary == "" {
 		binary = DefaultTartBinary
 	}
-	fmt.Printf(" ... binary %v\n", binary)
 	return []Option{
 		WithStateBackoff(c.StateBackoff),
 		WithRunBackoff(c.RunBackoff),
