@@ -36,18 +36,21 @@ var (
 // LaunchOption defines a function type for configuring the Launcher.
 type LaunchOption func(o *launchOptions)
 
+// WithCmdEnv sets the environment variables for the command to be launched.
 func WithCmdEnv(env func() []string) LaunchOption {
 	return func(o *launchOptions) {
 		o.cmdenv = env
 	}
 }
 
+// WithWorkingDir sets the working directory for the command to be launched.
 func WithWorkingDir(dir string) LaunchOption {
 	return func(o *launchOptions) {
 		o.dir = dir
 	}
 }
 
+// WithStdoutStderr sets the stdout and stderr writers for the launched command.
 func WithStdoutStderr(stdout, stderr io.Writer) LaunchOption {
 	return func(o *launchOptions) {
 		o.stdout = stdout
@@ -162,4 +165,32 @@ func (l *Launcher) TerminateLaunchedApp() bool {
 	}
 	l.mu.Unlock()
 	return false
+}
+
+// TailBytes returns the last n bytes of the specified file. If n <= 0,
+// it returns nil, nil.
+func TailBytes(filename string, n int) ([]byte, error) {
+	if n <= 0 {
+		return nil, nil
+	}
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if fi.Size() <= int64(n) {
+		return io.ReadAll(f)
+	}
+	if _, err := f.Seek(-int64(n), io.SeekEnd); err != nil {
+		return nil, err
+	}
+	buf := make([]byte, n)
+	if _, err := io.ReadFull(f, buf); err != nil {
+		return nil, err
+	}
+	return buf, nil
 }
