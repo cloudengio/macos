@@ -154,4 +154,3 @@ func TestCommonFlagsStepRunnerOptions(t *testing.T) {
 		})
 	}
 }
-
