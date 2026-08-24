@@ -25,8 +25,18 @@ func WithStepTiming(timing bool) StepRunnerOption {
 	}
 }
 
+// WithStepVerbose configures the StepRunner to print each step as it is run,
+// including the step that fails, without the timing information that
+// WithStepTiming adds.
+func WithStepVerbose(verbose bool) StepRunnerOption {
+	return func(o *stepRunnerOptions) {
+		o.verbose = verbose
+	}
+}
+
 type stepRunnerOptions struct {
-	timing bool
+	timing  bool
+	verbose bool
 }
 
 // StepRunner manages and executes a series of Steps.
@@ -119,11 +129,19 @@ func (r *StepRunner) Run(ctx context.Context, cmdRunner *CommandRunner) RunResul
 	for i, step := range r.steps {
 		result, err := step.Run(ctx, cmdRunner)
 		log = append(log, result)
-		if err != nil {
-			break
-		}
-		if r.options.timing {
+		// Report the step before acting on its error, so that a failing step is
+		// shown rather than being the one step that is not.
+		switch {
+		case r.options.timing:
 			fmt.Fprintf(os.Stderr, "  step: %d: %v: %v\n", i, result.Duration(), result.CommandLine())
+		case r.options.verbose:
+			fmt.Fprintf(os.Stderr, "  step: %d: %v\n", i, result.CommandLine())
+		}
+		if err != nil {
+			if r.options.timing || r.options.verbose {
+				fmt.Fprintf(os.Stderr, "  step: %d: failed: %v\n", i, err)
+			}
+			break
 		}
 	}
 	if r.options.timing {

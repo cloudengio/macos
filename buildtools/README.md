@@ -1454,6 +1454,14 @@ func WithStepTiming(timing bool) StepRunnerOption
 ```
 
 
+```go
+func WithStepVerbose(verbose bool) StepRunnerOption
+```
+WithStepVerbose configures the StepRunner to print each step as it is run,
+including the step that fails, without the timing information that
+WithStepTiming adds.
+
+
 
 
 ### Type Suffix
