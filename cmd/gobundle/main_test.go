@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -39,6 +40,11 @@ func buildGobundleBinary() (string, string) {
 	}
 	bin := filepath.Join(tmpDir, "gobundle-test-bin")
 	cmd := exec.Command("go", "build", "-o", bin, ".")
+	// The binary is executed by these tests, so it must be built for the host
+	// even when the environment is set up to cross compile.
+	cmd.Env = append(os.Environ(),
+		"GOOS="+runtime.GOOS,
+		"GOARCH="+runtime.GOARCH)
 	if err := cmd.Run(); err != nil {
 		panic(err)
 	}
