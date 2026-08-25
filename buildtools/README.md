@@ -658,8 +658,12 @@ type InfoPlist struct {
 	CFBundlePackageType    string           `yaml:"CFBundlePackageType"`
 	LSMinimumSystemVersion string           `yaml:"LSMinimumSystemVersion"`
 	CFBundleDisplayName    string           `yaml:"CFBundleDisplayName"`
-	CFBundleVersion        string           `yaml:"CFBundleVersion"`
 	XPCService             *XPCServicePlist `yaml:"XPCService"`
+
+	// CFBundleVersion is the build identifier and CFBundleShortVersionString
+	// the human-readable release version, eg. "1.2.0+3f2a9c11" and "1.2.0".
+	CFBundleVersion            string `yaml:"CFBundleVersion"`
+	CFBundleShortVersionString string `yaml:"CFBundleShortVersionString"`
 
 	// Extra holds every key that has no field of its own, so that keys this
 	// package does not know about are preserved rather than discarded.

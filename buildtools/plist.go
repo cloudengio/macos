@@ -26,8 +26,12 @@ type InfoPlist struct {
 	CFBundlePackageType    string           `yaml:"CFBundlePackageType"`
 	LSMinimumSystemVersion string           `yaml:"LSMinimumSystemVersion"`
 	CFBundleDisplayName    string           `yaml:"CFBundleDisplayName"`
-	CFBundleVersion        string           `yaml:"CFBundleVersion"`
 	XPCService             *XPCServicePlist `yaml:"XPCService"`
+
+	// CFBundleVersion is the build identifier and CFBundleShortVersionString
+	// the human-readable release version, eg. "1.2.0+3f2a9c11" and "1.2.0".
+	CFBundleVersion            string `yaml:"CFBundleVersion"`
+	CFBundleShortVersionString string `yaml:"CFBundleShortVersionString"`
 
 	// Extra holds every key that has no field of its own, so that keys this
 	// package does not know about are preserved rather than discarded.
@@ -144,7 +148,7 @@ func setString(out map[string]any, key, value string) {
 // Extra holds only keys without a field of their own; a value populated by hand
 // that sets both has its typed field take precedence.
 func (ipl InfoPlist) keys() map[string]any {
-	out := newKeys(ipl.Extra, 9)
+	out := newKeys(ipl.Extra, 10)
 	setString(out, "CFBundleIdentifier", ipl.CFBundleIdentifier)
 	setString(out, "CFBundleName", ipl.CFBundleName)
 	setString(out, "CFBundleExecutable", ipl.CFBundleExecutable)
@@ -153,6 +157,7 @@ func (ipl InfoPlist) keys() map[string]any {
 	setString(out, "LSMinimumSystemVersion", ipl.LSMinimumSystemVersion)
 	setString(out, "CFBundleDisplayName", ipl.CFBundleDisplayName)
 	setString(out, "CFBundleVersion", ipl.CFBundleVersion)
+	setString(out, "CFBundleShortVersionString", ipl.CFBundleShortVersionString)
 	if ipl.XPCService != nil {
 		out["XPCService"] = ipl.XPCService.keys()
 	}
