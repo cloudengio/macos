@@ -238,6 +238,61 @@ func TestPluginReadRequest(t *testing.T) {
 
 }
 
+func TestPluginReadRequestVersion(t *testing.T) {
+	ctx := t.Context()
+	cfg := plugin.Config{
+		Type:    keychain.KeychainDataProtectionLocal,
+		Account: "test-account",
+	}
+	ps := plugin.NewServer()
+
+	readRequest := func(t *testing.T, version int32) (*plugin.Config, plugins.Request, *plugins.Response) {
+		t.Helper()
+		req, err := plugin.NewRequest("test_key", cfg)
+		if err != nil {
+			t.Fatalf("NewRequest failed: %v", err)
+		}
+		req.Version = version
+		data, err := json.Marshal(req)
+		if err != nil {
+			t.Fatalf("failed to marshal request: %v", err)
+		}
+		return ps.ReadRequest(ctx, bytes.NewReader(data))
+	}
+
+	// A request newer than this plugin understands must be rejected rather
+	// than serviced, since its fields may not mean what this plugin thinks.
+	rCfg, rReq, resp := readRequest(t, plugins.RequestCurrentVersion+1)
+	if resp == nil {
+		t.Fatal("expected an error response for an unsupported request version, got nil")
+	}
+	if !errors.Is(resp.Error, plugins.ErrUnsupportedVersion) {
+		t.Errorf("expected error to be ErrUnsupportedVersion, got %v", resp.Error)
+	}
+	if rCfg != nil {
+		t.Errorf("expected nil config for a rejected request, got %+v", rCfg)
+	}
+	if rReq.Keyname != "" {
+		t.Errorf("expected an empty request for a rejected request, got %+v", rReq)
+	}
+
+	// The current version, and a zero version from a client that predates
+	// versioning, are both accepted.
+	for _, version := range []int32{0, plugins.RequestCurrentVersion} {
+		rCfg, rReq, resp := readRequest(t, version)
+		if resp != nil {
+			t.Errorf("version %d: unexpected error response: %v", version, resp.Error)
+			continue
+		}
+		if got, want := rReq.Version, version; got != want {
+			t.Errorf("version %d: got request version %d, want %d", version, got, want)
+		}
+		if rCfg == nil || rCfg.Account != cfg.Account {
+			t.Errorf("version %d: got config %+v, want account %q", version, rCfg, cfg.Account)
+		}
+	}
+}
+
 func TestSendResponse(t *testing.T) {
 	ctx := t.Context()
 	logBuf := &strings.Builder{}

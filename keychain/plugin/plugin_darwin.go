@@ -321,11 +321,15 @@ func (ps *Server) ReadRequest(ctx context.Context, rd io.Reader) (*Config, plugi
 	if err := dec.Decode(&req); err != nil {
 		return nil, plugins.Request{}, errorResponse(ctx, req, "failed to decode request", err.Error())
 	}
+	if verr := req.CheckVersion(); verr != nil {
+		return nil, plugins.Request{}, errorResponse(ctx, req, verr.Message, verr.Detail)
+	}
 	var cfg Config
 	if err := json.Unmarshal(req.PluginSpecific, &cfg); err != nil {
 		return nil, plugins.Request{}, errorResponse(ctx, req, "failed to unmarshal plugin_specific", err.Error())
 	}
 	ps.opts.logger.Info("new request",
+		"version", req.Version,
 		"id", req.ID,
 		"account", cfg.Account,
 		"key", req.Keyname,
