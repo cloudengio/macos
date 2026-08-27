@@ -127,12 +127,10 @@ func (p *Provider) Get(ctx context.Context, vmName string) (vmspool.VMDetail, er
 		return vmspool.VMDetail{}, fmt.Errorf("tart get %s: parse: %w", vmName, err)
 	}
 	return vmspool.VMDetail{
-		VMInfo: vmspool.VMInfo{
-			Name:    vmName,
-			Pool:    p.pool,
-			State:   g.State,
-			Running: g.Running,
-		},
+		Name:     vmName,
+		Pool:     p.pool,
+		State:    g.State,
+		Running:  g.Running,
 		DiskGiB:  g.Disk,
 		NumCores: g.CPU,
 		MemGiB:   g.Memory / 1024,

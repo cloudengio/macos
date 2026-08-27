@@ -124,10 +124,10 @@ func TestFSPluginFallback(t *testing.T) {
 		{"missing-path", filepath.Join(cwd, "testdata", "no-such-plugin"), iofs.ErrNotExist},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := plugin.Config{Binary: tc.binary, Type: keychain.KeychainAll}
+			cfg := plugin.Config{Binary: tc.binary, Type: keychain.KeychainAll,
 
-			// OnlyUsePlugin=false falls back to direct, in-process keychain access.
-			cfg.OnlyUsePlugin = false
+				// OnlyUsePlugin=false falls back to direct, in-process keychain access.
+				OnlyUsePlugin: false}
 			got, err := cfg.FS(false)
 			if err != nil {
 				t.Fatalf("expected fallback to direct keychain fs, got error: %v", err)

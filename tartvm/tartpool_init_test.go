@@ -45,7 +45,7 @@ func (c *tartConstructor) New(ctx context.Context) (vms.Instance, error) {
 func (c *tartConstructor) List(context.Context) ([]vmspool.VMInfo, error) { return nil, nil }
 
 func (c *tartConstructor) Get(_ context.Context, name string) (vmspool.VMDetail, error) {
-	return vmspool.VMDetail{VMInfo: vmspool.VMInfo{Name: name}}, nil
+	return vmspool.VMDetail{Name: name}, nil
 }
 
 func (c *tartConstructor) Delete(context.Context, time.Duration) ([]string, error) {

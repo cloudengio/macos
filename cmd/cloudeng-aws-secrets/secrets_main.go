@@ -145,10 +145,8 @@ func handleError(err error) error {
 			fmt.Fprintf(os.Stderr, "%s: keychain plugin stderr: %s\n", name, pluginErr.Stderr)
 		}
 	}
-	var apiErr smithy.APIError
-	if errors.As(err, &apiErr) {
-		var opErr *smithy.OperationError
-		if errors.As(err, &opErr) {
+	if apiErr, ok := errors.AsType[smithy.APIError](err); ok {
+		if opErr, ok := errors.AsType[*smithy.OperationError](err); ok {
 			fmt.Fprintf(os.Stderr, "%s: AWS error (%s/%s): %s: %s\n", name, opErr.Service(), opErr.Operation(), apiErr.ErrorCode(), apiErr.ErrorMessage())
 		} else {
 			fmt.Fprintf(os.Stderr, "%s: AWS API error: %s: %s\n", name, apiErr.ErrorCode(), apiErr.ErrorMessage())

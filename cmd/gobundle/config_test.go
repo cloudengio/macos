@@ -262,9 +262,7 @@ func TestCreateAndSignNotarizeValidation(t *testing.T) {
 
 	// 2. Notarize requested with Apple Development identity
 	b = newBundle(config{
-		SigningConfig: buildtools.SigningConfig{
-			Identity: "Apple Development: Developer (TEAM123)",
-		},
+		Identity: "Apple Development: Developer (TEAM123)",
 		Notarize: true,
 		Notary: buildtools.NotaryConfig{
 			KeychainProfile: "my-profile",
@@ -277,9 +275,7 @@ func TestCreateAndSignNotarizeValidation(t *testing.T) {
 
 	// 3. Notarize requested with no notary credentials
 	b = newBundle(config{
-		SigningConfig: buildtools.SigningConfig{
-			Identity: "Developer ID Application: Developer (TEAM123)",
-		},
+		Identity: "Developer ID Application: Developer (TEAM123)",
 		Notarize: true,
 	})
 	err = b.createAndSign(ctx, "testbin", true)
