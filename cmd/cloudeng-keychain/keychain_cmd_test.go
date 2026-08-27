@@ -298,7 +298,7 @@ func TestDeleteKeyInfoUsesWriteFlags(t *testing.T) {
 	// Verify DeleteKeyInfoFlags embeds plugin.WriteFlags (not ReadFlags).
 	var fl DeleteKeyInfoFlags
 	wf := fl.WriteFlags
-	if got, want := reflect.TypeOf(wf), reflect.TypeOf(plugin.WriteFlags{}); got != want {
+	if got, want := reflect.TypeOf(wf), reflect.TypeFor[plugin.WriteFlags](); got != want {
 		t.Fatalf("DeleteKeyInfoFlags.WriteFlags type = %v, want %v", got, want)
 	}
 
