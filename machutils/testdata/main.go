@@ -10,20 +10,40 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
+	"os/exec"
+	"time"
 
 	"cloudeng.io/macos/machutils"
 )
 
 func main() {
 	var (
-		checkUID = flag.Int64("check-uid", -1, "expected UID to check against")
-		mockPPID = flag.Int("mock-ppid", 0, "mock parent PID for error testing")
+		checkUID   = flag.Int64("check-uid", -1, "expected UID to check against")
+		execUID    = flag.Bool("exec-uid", false, "print the UID and permissions of the running executable")
+		deleteSelf = flag.Bool("delete-self", false, "remove the executable before reading its UID, for error testing")
+		ensureSafe = flag.Bool("ensure-safe", false, "report whether the parent process is safe")
+		orphan     = flag.String("orphan", "", "spawn a copy that reports its parent UID to the named file, then exit without waiting for it")
+		report     = flag.String("report-parent-uid", "", "wait to be reparented, then write the parent PID and UID to the named file")
 	)
 	flag.Parse()
 
-	if *mockPPID != 0 {
-		_ = os.Setenv("TEST_MOCK_PPID", strconv.Itoa(*mockPPID))
+	switch {
+	case *execUID:
+		reportExecutableOwner(*deleteSelf)
+		return
+	case *ensureSafe:
+		if err := machutils.EnsureParentProcessSafe(); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(4)
+		}
+		fmt.Fprintln(os.Stdout, "safe")
+		return
+	case *orphan != "":
+		spawnOrphan(*orphan)
+		return
+	case *report != "":
+		reportParentAfterReparenting(*report)
+		return
 	}
 
 	uid, err := machutils.GetParentUID()
@@ -36,4 +56,67 @@ func main() {
 		os.Exit(2)
 	}
 	fmt.Fprintf(os.Stdout, "%d\n", uid)
+}
+
+// reportExecutableOwner prints the UID and permissions of the running
+// executable, having first removed it if deleteSelf is set, which leaves the
+// executable's path with nothing to stat.
+func reportExecutableOwner(deleteSelf bool) {
+	if deleteSelf {
+		path, err := os.Executable()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		if err := os.Remove(path); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+	}
+	uid, perm, err := machutils.GetExecutableOwnerInfo()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(3)
+	}
+	fmt.Fprintf(os.Stdout, "%d %o\n", uid, uint32(perm))
+}
+
+// spawnOrphan starts a copy of this binary that will report its parent, then
+// returns immediately without waiting for it, so that the copy is orphaned and
+// the kernel reparents it.
+func spawnOrphan(out string) {
+	self, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	cmd := exec.Command(self, "-report-parent-uid", out) //nolint:gosec // self
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	// Deliberately no Wait: exiting here orphans the child.
+}
+
+// reportParentAfterReparenting waits for the kernel to reparent this process,
+// which happens once the process that started it has exited, then writes the
+// parent PID and the UID reported for it. The file is written atomically so
+// that a reader never sees it half written.
+func reportParentAfterReparenting(out string) {
+	deadline := time.Now().Add(30 * time.Second)
+	for os.Getppid() != 1 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	uid, err := machutils.GetParentUID()
+	line := fmt.Sprintf("%d %d\n", os.Getppid(), uid)
+	if err != nil {
+		line = fmt.Sprintf("%d error %v\n", os.Getppid(), err)
+	}
+	tmp := out + ".tmp"
+	if err := os.WriteFile(tmp, []byte(line), 0600); err != nil {
+		os.Exit(1)
+	}
+	if err := os.Rename(tmp, out); err != nil {
+		os.Exit(1)
+	}
 }
