@@ -22,6 +22,15 @@ TARGET_HOME=$(eval echo ~$TARGET_USER)
 BashInstallPreamble is the standard preamble for install scripts used in
 pkgbuild packages.
 
+### SafariWebExtensionPointIdentifier
+```go
+// SafariWebExtensionPointIdentifier is the NSExtensionPointIdentifier of a
+// Safari web extension, ie. one that uses the WebExtensions API and a
+// manifest.json.
+SafariWebExtensionPointIdentifier = "com.apple.Safari.web-extension"
+
+```
+
 
 
 ## Functions
@@ -49,6 +58,22 @@ directory. CommandRunner will use this directory for executing commands.
 func GUIDomain() string
 ```
 GUIDomain returns the launchd GUI domain target for the current user.
+
+### Func NativeMessagingHostsDir
+```go
+func NativeMessagingHostsDir(browser BrowserType, scope NativeMessagingScope, home string) (string, error)
+```
+NativeMessagingHostsDir returns the directory that browser searches for
+native messaging manifests, into which the manifest for a helper must be
+installed for an extension to be able to launch it. home is the user's home
+directory and is ignored for SystemScope.
+
+Safari does not use native messaging manifests: a Safari web extension sends
+native messages to the .appex that contains it, so an error is returned for
+it. See AppBundle.AddSafariWebExtension.
+
+See https://developer.chrome.com/docs/apps/nativeMessaging and
+https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Native_manifests
 
 ### Func RegisterFlagsOrDie
 ```go
@@ -78,6 +103,39 @@ https://developer.apple.com/documentation/bundleresources See:
 https://developer.apple.com/documentation/bundleresources/placing-content-in-a-bundle
 
 ### Methods
+
+```go
+func (b AppBundle) AddHelperExecutable(src string, name ...string) []Step
+```
+AddHelperExecutable returns the steps required to add an additional
+executable to the bundle's Contents/Helpers directory, such as a tool that
+a native messaging helper invokes, or a helper shared by more than one
+browser. name defaults to the base name of src.
+
+Each executable added this way is a separate Mach-O and so must be signed in
+its own right, before the bundle that contains it, see SignHelper.
+
+
+```go
+func (b AppBundle) AddNativeMessagingHelper(h NativeMessagingHelper, browsers ...BrowserType) []Step
+```
+AddNativeMessagingHelper returns the steps required to add a native
+messaging helper to the bundle: the Contents/Helpers directory is
+created, the helper is copied into it, and a manifest is written into
+Contents/Resources/NativeMessagingHosts/<browser> for each browser. Each
+manifest is validated for the browser it is written for. Safari does not use
+native messaging manifests and is rejected.
+
+
+```go
+func (b AppBundle) AddSafariWebExtension(ext SafariWebExtension) []Step
+```
+AddSafariWebExtension returns the steps required to add a Safari web
+extension to the bundle: the .appex is created in Contents/PlugIns with the
+Info.plist that identifies it as a web extension, the handler executable
+is copied into it, and the extension's own resources are copied into its
+Resources directory.
+
 
 ```go
 func (b AppBundle) Clean() Step
@@ -133,12 +191,55 @@ bundle that is referenced in the Info.plist.
 
 
 ```go
+func (b AppBundle) Helpers(elem ...string) string
+```
+Helpers returns the path to elem within the bundle's Contents/Helpers
+directory, which is where a native messaging helper is placed.
+
+
+```go
+func (b AppBundle) InstallNativeMessagingManifest(h NativeMessagingHelper, browser BrowserType, scope NativeMessagingScope) []Step
+```
+InstallNativeMessagingManifest returns the step required to install
+the manifest for h into the directory that browser searches, so that an
+extension can launch the helper. It is intended for development use;
+a shipped application would normally install its own manifest when it runs.
+Safari does not use native messaging manifests and is rejected.
+
+
+```go
 func (b AppBundle) InstallProvisioningProfile(profile string) Step
 ```
 InstallProvisioningProfile returns a Step that copies
 the provisioning profile into the app bundle. See
 https://developer.apple.com/documentation/technotes/tn3125-inside-code-signing-provisioning-profiles
 for an explanation of provisioning profiles.
+
+
+```go
+func (b AppBundle) NativeMessagingHelperPath(h NativeMessagingHelper) string
+```
+NativeMessagingHelperPath returns the absolute path of the helper as it will
+be once the bundle is installed, which is the path named by the manifest.
+
+
+```go
+func (b AppBundle) NativeMessagingManifest(h NativeMessagingHelper, browser ...BrowserType) NativeMessagingConfig
+```
+NativeMessagingManifest returns the manifest for h as it is written into the
+bundle, with Path set to the helper's installed location and Type defaulted
+to "stdio". If a browser is specified, the configuration is tailored to
+that browser (e.g. AllowedOrigins for Chrome/Edge, AllowedExtensions for
+Firefox).
+
+
+```go
+func (b AppBundle) NativeMessagingManifestPath(h NativeMessagingHelper, browser BrowserType) string
+```
+NativeMessagingManifestPath returns the path within the bundle of
+the manifest written for browser, relative to the bundle's Resources
+directory. An installer copies this file into the directory returned by
+NativeMessagingHostsDir.
 
 
 ```go
@@ -153,6 +254,13 @@ once submission completes.
 
 
 ```go
+func (b AppBundle) PlugIns(elem ...string) string
+```
+PlugIns returns the path to elem within the bundle's Contents/PlugIns
+directory, which is where an application extension is placed.
+
+
+```go
 func (b AppBundle) Resources(elem ...string) string
 ```
 Resources returns the path to the specified element within the app bundle's
@@ -162,6 +270,13 @@ Resources directory.
 ```go
 func (b AppBundle) SPCtlAsses() Step
 ```
+
+
+```go
+func (b AppBundle) SafariWebExtensionPath(ext SafariWebExtension) string
+```
+SafariWebExtensionPath returns the path of the extension's .appex within the
+bundle.
 
 
 ```go
@@ -181,6 +296,31 @@ func (b AppBundle) SignExecutable(signer Signer) Step
 ```
 SignExecutable returns the step required to sign the executable within the
 app bundle.
+
+
+```go
+func (b AppBundle) SignHelper(signer Signer, name string) Step
+```
+SignHelper returns the step required to sign the named executable within the
+bundle's Contents/Helpers directory.
+
+
+```go
+func (b AppBundle) SignNativeMessagingHelper(signer Signer, h NativeMessagingHelper) Step
+```
+SignNativeMessagingHelper returns the step required to sign the helper
+within the app bundle. A helper is a separate executable and so must be
+signed before the bundle that contains it.
+
+
+```go
+func (b AppBundle) SignSafariWebExtension(signer Signer, ext SafariWebExtension) []Step
+```
+SignSafariWebExtension returns the steps required to sign the extension's
+.appex within the app bundle: the handler executable inside the .appex
+is signed first, and then the .appex bundle itself. An .appex is a nested
+bundle and so must be signed inside out, and before the bundle that contains
+it.
 
 
 ```go
@@ -651,14 +791,15 @@ Suffix returns the filename suffix appropriate for the icon size multiple.
 ### Type InfoPlist
 ```go
 type InfoPlist struct {
-	CFBundleIdentifier     string           `yaml:"CFBundleIdentifier"`
-	CFBundleName           string           `yaml:"CFBundleName"`
-	CFBundleExecutable     string           `yaml:"CFBundleExecutable"`
-	CFBundleIconFile       string           `yaml:"CFBundleIconFile"`
-	CFBundlePackageType    string           `yaml:"CFBundlePackageType"`
-	LSMinimumSystemVersion string           `yaml:"LSMinimumSystemVersion"`
-	CFBundleDisplayName    string           `yaml:"CFBundleDisplayName"`
-	XPCService             *XPCServicePlist `yaml:"XPCService"`
+	CFBundleIdentifier     string            `yaml:"CFBundleIdentifier"`
+	CFBundleName           string            `yaml:"CFBundleName"`
+	CFBundleExecutable     string            `yaml:"CFBundleExecutable"`
+	CFBundleIconFile       string            `yaml:"CFBundleIconFile"`
+	CFBundlePackageType    string            `yaml:"CFBundlePackageType"`
+	LSMinimumSystemVersion string            `yaml:"LSMinimumSystemVersion"`
+	CFBundleDisplayName    string            `yaml:"CFBundleDisplayName"`
+	XPCService             *XPCServicePlist  `yaml:"XPCService"`
+	NSExtension            *NSExtensionPlist `yaml:"NSExtension"`
 
 	// CFBundleVersion is the build identifier and CFBundleShortVersionString
 	// the human-readable release version, eg. "1.2.0+3f2a9c11" and "1.2.0".
@@ -818,6 +959,44 @@ via Extra.
 
 
 
+### Type NSExtensionPlist
+```go
+type NSExtensionPlist struct {
+	// NSExtensionPointIdentifier names the kind of extension, eg.
+	// SafariWebExtensionPointIdentifier.
+	NSExtensionPointIdentifier string `yaml:"NSExtensionPointIdentifier"`
+	// NSExtensionPrincipalClass names the class that Safari instantiates to
+	// handle requests, ie. the one that receives native messages.
+	NSExtensionPrincipalClass string         `yaml:"NSExtensionPrincipalClass"`
+	Extra                     map[string]any `yaml:",inline"`
+}
+```
+NSExtensionPlist represents the contents of an NSExtension dictionary,
+which appears within the Info.plist of an application extension, such as the
+.appex that contains a Safari web extension. As for InfoPlist, keys without
+a field of their own are captured by Extra.
+
+### Methods
+
+```go
+func (n NSExtensionPlist) MarshalPlist() (any, error)
+```
+
+
+```go
+func (n NSExtensionPlist) MarshalYAML() (any, error)
+```
+
+
+```go
+func (n NSExtensionPlist) Validate() error
+```
+Validate reports whether the keys required of an NSExtension dictionary are
+present.
+
+
+
+
 ### Type NativeMessagingConfig
 ```go
 type NativeMessagingConfig struct {
@@ -845,13 +1024,82 @@ allowed origins.
 func (nm *NativeMessagingConfig) Validate(browser BrowserType) Step
 ```
 Validate validates the native messaging configuration for the specified
-browser.
+browser. Edge is validated as for Chrome, since it is chromium based
+and uses the same manifest format. Safari does not use native messaging
+manifests and is reported as unsupported.
 
 
 ```go
 func (nm *NativeMessagingConfig) ValidateChrome() error
 ```
 ValidateChrome validates the native messaging configuration for Chrome.
+
+
+```go
+func (nm *NativeMessagingConfig) ValidateFirefox() error
+```
+ValidateFirefox validates the native messaging configuration for Firefox.
+
+
+
+
+### Type NativeMessagingHelper
+```go
+type NativeMessagingHelper struct {
+	// Executable is the path to the built helper binary that is copied into
+	// the bundle.
+	Executable string
+
+	// Name is the name of the helper within the bundle. It defaults to the
+	// base name of Executable.
+	Name string
+
+	// Config is the manifest for the helper. Its Path is filled in by
+	// Manifest and need not be set; Type defaults to "stdio".
+	Config NativeMessagingConfig
+
+	// InstalledBundlePath is the location the bundle will occupy once
+	// installed, such as /Applications/Example.app. The manifest must name
+	// the helper's path as it will be at runtime, which is not where the
+	// bundle is built. It defaults to the bundle's own path, which is
+	// appropriate when the bundle is used from where it is built.
+	InstalledBundlePath string
+}
+```
+NativeMessagingHelper describes a native messaging host that is shipped
+inside an app bundle, so that a browser extension can launch it.
+
+The helper is an executable placed in the bundle's Contents/Helpers
+directory, alongside a manifest for each browser it serves. The manifest
+names the absolute path of the helper, which is where the bundle will be
+once installed rather than where it is built, hence InstalledBundlePath.
+
+
+### Type NativeMessagingScope
+```go
+type NativeMessagingScope int
+```
+NativeMessagingScope determines whether a native messaging manifest is
+installed for the current user or for all users of the machine.
+
+### Constants
+### UserScope, SystemScope
+```go
+// UserScope installs the manifest for the current user only.
+UserScope NativeMessagingScope = iota
+// SystemScope installs the manifest for all users, which requires
+// privileges to write outside of the user's home directory.
+SystemScope
+
+```
+
+
+
+### Methods
+
+```go
+func (s NativeMessagingScope) String() string
+```
 
 
 
@@ -1190,6 +1438,51 @@ func (r RunResult) Error() error
 Error returns the last error encountered, if any.
 
 
+
+
+### Type SafariWebExtension
+```go
+type SafariWebExtension struct {
+	// Name is the name of the .appex within Contents/PlugIns, without the
+	// .appex suffix.
+	Name string
+
+	// Executable is the path to the built handler binary, which is copied to
+	// the .appex's Contents/MacOS directory. It must be named by
+	// Info.CFBundleExecutable.
+	Executable string
+
+	// Resources is the directory holding the web extension itself: its
+	// manifest.json and the scripts, pages and assets that it references. Its
+	// contents are copied into the .appex's Contents/Resources directory.
+	Resources string
+
+	// PrincipalClass is the NSExtensionPrincipalClass, ie. the class that
+	// Safari instantiates to receive native messages from the extension, such
+	// as "ExampleExtension.SafariWebExtensionHandler".
+	PrincipalClass string
+
+	// Info is the .appex's Info.plist. Its NSExtension dictionary is set by
+	// AddSafariWebExtension and need not be filled in; CFBundlePackageType
+	// defaults to XPC!. CFBundleIdentifier must be prefixed by the
+	// identifier of the containing app, as macOS requires of any app
+	// extension.
+	Info InfoPlist
+}
+```
+SafariWebExtension describes a Safari web extension that is shipped inside
+an app bundle. Safari does not launch a separate native messaging host the
+way Chrome and Firefox do: a web extension is packaged as an application
+extension, an .appex within the containing app's Contents/PlugIns, and
+messages sent by the extension with runtime.sendNativeMessage are delivered
+to the principal class of that .appex. That class is the native helper.
+
+Only Safari web extensions are supported. The older Safari app extensions,
+which use the com.apple.Safari.extension extension point and do not use a
+manifest.json, are rejected.
+
+See
+https://developer.apple.com/documentation/safariservices/safari-web-extensions
 
 
 ### Type Signer

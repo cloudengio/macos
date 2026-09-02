@@ -14,6 +14,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 )
 
@@ -148,16 +149,33 @@ type NativeMessagingConfig struct {
 	AllowedExtensions []string `json:"allowed_extensions,omitempty"` // firefox extension ids
 }
 
-// Validate validates the native messaging configuration for the specified browser.
+// Validate validates the native messaging configuration for the specified
+// browser. Edge is validated as for Chrome, since it is chromium based and
+// uses the same manifest format. Safari does not use native messaging
+// manifests and is reported as unsupported.
 func (nm *NativeMessagingConfig) Validate(browser BrowserType) Step {
 	return StepFunc(func(_ context.Context, _ *CommandRunner) (StepResult, error) {
 		switch browser {
 		default:
-			err := fmt.Errorf("unsupported browser: %q", browser)
+			err := fmt.Errorf("unsupported browser: %v", browser)
 			return NewStepResult("validate native messaging config", nil, nil, err), err
-		case Chrome:
+		case Safari:
+			err := fmt.Errorf("safari does not use native messaging manifests: a web extension sends native messages to its containing .appex, see AddSafariWebExtension")
+			return NewStepResult("validate safari native messaging config", nil, nil, err), err
+		case Chrome, Edge:
+			if nm.Path == "" {
+				err := fmt.Errorf("path cannot be empty")
+				return NewStepResult(fmt.Sprintf("validate %v native messaging config", browser), nil, nil, err), err
+			}
 			err := nm.ValidateChrome()
-			return NewStepResult("validate chrome native messaging config", nil, nil, err), err
+			return NewStepResult(fmt.Sprintf("validate %v native messaging config", browser), nil, nil, err), err
+		case Firefox:
+			if nm.Path == "" {
+				err := fmt.Errorf("path cannot be empty")
+				return NewStepResult("validate firefox native messaging config", nil, nil, err), err
+			}
+			err := nm.ValidateFirefox()
+			return NewStepResult("validate firefox native messaging config", nil, nil, err), err
 		}
 	})
 }
@@ -185,6 +203,12 @@ func (nm *NativeMessagingConfig) ValidateChrome() error {
 	// No consecutive dots
 	if chromeNoConsecutiveDots.FindStringIndex(name) != nil {
 		return fmt.Errorf("name %q cannot contain consecutive dots", name)
+	}
+	if len(nm.AllowedOrigins) == 0 {
+		return fmt.Errorf("allowed_origins must list at least one origin for chrome")
+	}
+	if nm.Path != "" && !filepath.IsAbs(nm.Path) {
+		return fmt.Errorf("path %q must be an absolute path", nm.Path)
 	}
 	return nil
 }

@@ -19,14 +19,15 @@ import (
 // Commonly used keys have fields of their own; every other key is captured by
 // Extra, so an InfoPlist round-trips without loss.
 type InfoPlist struct {
-	CFBundleIdentifier     string           `yaml:"CFBundleIdentifier"`
-	CFBundleName           string           `yaml:"CFBundleName"`
-	CFBundleExecutable     string           `yaml:"CFBundleExecutable"`
-	CFBundleIconFile       string           `yaml:"CFBundleIconFile"`
-	CFBundlePackageType    string           `yaml:"CFBundlePackageType"`
-	LSMinimumSystemVersion string           `yaml:"LSMinimumSystemVersion"`
-	CFBundleDisplayName    string           `yaml:"CFBundleDisplayName"`
-	XPCService             *XPCServicePlist `yaml:"XPCService"`
+	CFBundleIdentifier     string            `yaml:"CFBundleIdentifier"`
+	CFBundleName           string            `yaml:"CFBundleName"`
+	CFBundleExecutable     string            `yaml:"CFBundleExecutable"`
+	CFBundleIconFile       string            `yaml:"CFBundleIconFile"`
+	CFBundlePackageType    string            `yaml:"CFBundlePackageType"`
+	LSMinimumSystemVersion string            `yaml:"LSMinimumSystemVersion"`
+	CFBundleDisplayName    string            `yaml:"CFBundleDisplayName"`
+	XPCService             *XPCServicePlist  `yaml:"XPCService"`
+	NSExtension            *NSExtensionPlist `yaml:"NSExtension"`
 
 	// CFBundleVersion is the build identifier and CFBundleShortVersionString
 	// the human-readable release version, eg. "1.2.0+3f2a9c11" and "1.2.0".
@@ -66,6 +67,20 @@ type XPCServicePlist struct {
 	Extra       map[string]any `yaml:",inline"`
 }
 
+// NSExtensionPlist represents the contents of an NSExtension dictionary, which
+// appears within the Info.plist of an application extension, such as the
+// .appex that contains a Safari web extension. As for InfoPlist, keys without
+// a field of their own are captured by Extra.
+type NSExtensionPlist struct {
+	// NSExtensionPointIdentifier names the kind of extension, eg.
+	// SafariWebExtensionPointIdentifier.
+	NSExtensionPointIdentifier string `yaml:"NSExtensionPointIdentifier"`
+	// NSExtensionPrincipalClass names the class that Safari instantiates to
+	// handle requests, ie. the one that receives native messages.
+	NSExtensionPrincipalClass string         `yaml:"NSExtensionPrincipalClass"`
+	Extra                     map[string]any `yaml:",inline"`
+}
+
 // missingKey reports the first of the supplied key/value pairs whose value is
 // empty as an error, or nil if all of them are set.
 func missingKey(pairs ...struct{ key, value string }) error {
@@ -96,7 +111,12 @@ func (ipl InfoPlist) Validate() error {
 		return err
 	}
 	if ipl.XPCService != nil {
-		return ipl.XPCService.Validate()
+		if err := ipl.XPCService.Validate(); err != nil {
+			return err
+		}
+	}
+	if ipl.NSExtension != nil {
+		return ipl.NSExtension.Validate()
 	}
 	return nil
 }
@@ -126,6 +146,15 @@ func (lap LaunchAgentPlist) Validate() error {
 // present.
 func (x XPCServicePlist) Validate() error {
 	return missingKey(required("ServiceName", x.ServiceName))
+}
+
+// Validate reports whether the keys required of an NSExtension dictionary are
+// present.
+func (n NSExtensionPlist) Validate() error {
+	return missingKey(
+		required("NSExtensionPointIdentifier", n.NSExtensionPointIdentifier),
+		required("NSExtensionPrincipalClass", n.NSExtensionPrincipalClass),
+	)
 }
 
 // newKeys returns a map seeded with the contents of extra, with room for n
@@ -161,6 +190,9 @@ func (ipl InfoPlist) keys() map[string]any {
 	if ipl.XPCService != nil {
 		out["XPCService"] = ipl.XPCService.keys()
 	}
+	if ipl.NSExtension != nil {
+		out["NSExtension"] = ipl.NSExtension.keys()
+	}
 	return out
 }
 
@@ -191,6 +223,18 @@ func (x XPCServicePlist) keys() map[string]any {
 	setString(out, "ServiceName", x.ServiceName)
 	return out
 }
+
+// keys returns the NSExtension dictionary contents, as per InfoPlist.keys.
+func (n NSExtensionPlist) keys() map[string]any {
+	out := newKeys(n.Extra, 2)
+	setString(out, "NSExtensionPointIdentifier", n.NSExtensionPointIdentifier)
+	setString(out, "NSExtensionPrincipalClass", n.NSExtensionPrincipalClass)
+	return out
+}
+
+func (n NSExtensionPlist) MarshalPlist() (any, error) { return n.keys(), nil }
+
+func (n NSExtensionPlist) MarshalYAML() (any, error) { return n.keys(), nil }
 
 func (ipl InfoPlist) MarshalPlist() (any, error) { return ipl.keys(), nil }
 

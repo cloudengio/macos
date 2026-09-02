@@ -78,3 +78,104 @@ CFBundleDisplayName: Swift UI Example
 	// Step executed: write Info.plist true
 	// Step executed: cp true
 }
+
+// ExampleAppBundle_AddNativeMessagingHelper shows how to build an app bundle
+// that contains a native messaging helper, so that a browser extension can
+// launch it. The helper is placed in the bundle and a manifest is written for
+// each browser, naming the helper's path as it will be once the bundle is
+// installed.
+func ExampleAppBundle_AddNativeMessagingHelper() {
+	bundle := buildtools.AppBundle{
+		Path: filepath.Join(os.TempDir(), "Example.app"),
+		Info: buildtools.InfoPlist{
+			CFBundleIdentifier: "io.cloudeng.Example",
+			CFBundleName:       "Example",
+			CFBundleExecutable: "Example",
+		},
+	}
+
+	helper := buildtools.NativeMessagingHelper{
+		Executable: "bin/example-helper",
+		// The manifest must name the helper where it will be at runtime,
+		// which is not where the bundle is built.
+		InstalledBundlePath: "/Applications/Example.app",
+		Config: buildtools.NativeMessagingConfig{
+			Name:        "io.cloudeng.example",
+			Description: "Example native helper",
+			AllowedOrigins: []string{
+				"chrome-extension://abcdefghijklmnopabcdefghijklmnop/",
+			},
+		},
+	}
+
+	// The steps are added to a runner along with those that create the
+	// bundle, sign it and so on.
+	steps := bundle.Create()
+	steps = append(steps, bundle.WriteInfoPlist())
+	steps = append(steps, bundle.AddNativeMessagingHelper(helper, buildtools.Chrome)...)
+	_ = steps
+
+	fmt.Println(bundle.NativeMessagingHelperPath(helper))
+	fmt.Println(filepath.Base(bundle.NativeMessagingManifestPath(helper, buildtools.Chrome)))
+
+	dir, err := buildtools.NativeMessagingHostsDir(buildtools.Chrome, buildtools.UserScope, "/Users/example")
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(dir)
+
+	// Output:
+	// /Applications/Example.app/Contents/Helpers/example-helper
+	// io.cloudeng.example.json
+	// /Users/example/Library/Application Support/Google/Chrome/NativeMessagingHosts
+}
+
+// ExampleAppBundle_AddSafariWebExtension shows how to build an app bundle that
+// contains a Safari web extension. Safari does not launch a separate native
+// messaging host: the extension is packaged as an .appex in the app's PlugIns
+// directory, and native messages are delivered to that .appex's principal
+// class, which is the native helper.
+func ExampleAppBundle_AddSafariWebExtension() {
+	bundle := buildtools.AppBundle{
+		Path: filepath.Join(os.TempDir(), "Example.app"),
+		Info: buildtools.InfoPlist{
+			CFBundleIdentifier: "io.cloudeng.Example",
+			CFBundleName:       "Example",
+			CFBundleExecutable: "Example",
+		},
+	}
+
+	ext := buildtools.SafariWebExtension{
+		Name:       "Example Extension",
+		Executable: "bin/ExampleHandler",
+		// The directory holding the web extension itself: manifest.json and
+		// everything it references.
+		Resources:      "extension",
+		PrincipalClass: "ExampleExtension.SafariWebExtensionHandler",
+		Info: buildtools.InfoPlist{
+			// An app extension's identifier must be prefixed by that of the
+			// app that contains it.
+			CFBundleIdentifier: "io.cloudeng.Example.Extension",
+			CFBundleName:       "Example Extension",
+			CFBundleExecutable: "ExampleHandler",
+		},
+	}
+
+	steps := bundle.Create()
+	steps = append(steps, bundle.WriteInfoPlist())
+	steps = append(steps, bundle.AddSafariWebExtension(ext)...)
+	_ = steps
+
+	fmt.Println(filepath.Base(bundle.SafariWebExtensionPath(ext)))
+	fmt.Println(buildtools.SafariWebExtensionPointIdentifier)
+
+	// Safari has no native messaging manifest to install.
+	if _, err := buildtools.NativeMessagingHostsDir(buildtools.Safari, buildtools.UserScope, "/Users/example"); err != nil {
+		fmt.Println("no manifest directory for safari")
+	}
+
+	// Output:
+	// Example Extension.appex
+	// com.apple.Safari.web-extension
+	// no manifest directory for safari
+}
