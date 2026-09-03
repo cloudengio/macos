@@ -24,6 +24,8 @@ func main() {
 		ensureSafe = flag.Bool("ensure-safe", false, "report whether the parent process is safe")
 		orphan     = flag.String("orphan", "", "spawn a copy that reports its parent UID to the named file, then exit without waiting for it")
 		report     = flag.String("report-parent-uid", "", "wait to be reparented, then write the parent PID and UID to the named file")
+		orphanSafe = flag.String("orphan-safe", "", "spawn a copy that tests EnsureParentProcessSafe after being orphaned, then exit without waiting for it")
+		reportSafe = flag.String("report-safe", "", "wait to be reparented, then write EnsureParentProcessSafe result to named file")
 	)
 	flag.Parse()
 
@@ -43,6 +45,12 @@ func main() {
 		return
 	case *report != "":
 		reportParentAfterReparenting(*report)
+		return
+	case *orphanSafe != "":
+		spawnOrphanSafe(*orphanSafe)
+		return
+	case *reportSafe != "":
+		reportSafeAfterReparenting(*reportSafe)
 		return
 	}
 
@@ -73,12 +81,12 @@ func reportExecutableOwner(deleteSelf bool) {
 			os.Exit(1)
 		}
 	}
-	uid, perm, err := machutils.GetExecutableOwnerInfo()
+	uid, fi, err := machutils.GetExecutableInfo()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(3)
 	}
-	fmt.Fprintf(os.Stdout, "%d %o\n", uid, uint32(perm))
+	fmt.Fprintf(os.Stdout, "%d %o\n", uid, uint32(fi.Mode().Perm()))
 }
 
 // spawnOrphan starts a copy of this binary that will report its parent, then
@@ -111,6 +119,43 @@ func reportParentAfterReparenting(out string) {
 	line := fmt.Sprintf("%d %d\n", os.Getppid(), uid)
 	if err != nil {
 		line = fmt.Sprintf("%d error %v\n", os.Getppid(), err)
+	}
+	tmp := out + ".tmp"
+	if err := os.WriteFile(tmp, []byte(line), 0600); err != nil {
+		os.Exit(1)
+	}
+	if err := os.Rename(tmp, out); err != nil {
+		os.Exit(1)
+	}
+}
+
+// spawnOrphanSafe starts a copy of this binary that will test EnsureParentProcessSafe
+// after being orphaned, then exits immediately without waiting for it.
+func spawnOrphanSafe(out string) {
+	self, err := os.Executable()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	cmd := exec.Command(self, "-report-safe", out) //nolint:gosec // self
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	// Deliberately no Wait: exiting here orphans the child.
+}
+
+// reportSafeAfterReparenting waits for the process to be reparented, then calls
+// EnsureParentProcessSafe and writes the outcome to out.
+func reportSafeAfterReparenting(out string) {
+	deadline := time.Now().Add(30 * time.Second)
+	for os.Getppid() != 1 && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	err := machutils.EnsureParentProcessSafe()
+	line := "safe\n"
+	if err != nil {
+		line = fmt.Sprintf("error: %v\n", err)
 	}
 	tmp := out + ".tmp"
 	if err := os.WriteFile(tmp, []byte(line), 0600); err != nil {

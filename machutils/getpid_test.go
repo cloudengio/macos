@@ -210,7 +210,7 @@ func cloneTestBinary(t *testing.T, perm fs.FileMode) string {
 		t.Fatalf("read %v: %v", testBinary, err)
 	}
 	clone := filepath.Join(t.TempDir(), "machutils-test-clone")
-	if err := os.WriteFile(clone, data, perm); err != nil {
+	if err := os.WriteFile(clone, data, perm); err != nil { //nolint:gosec // G703: clone is in t.TempDir()
 		t.Fatalf("write %v: %v", clone, err)
 	}
 	// WriteFile is subject to the umask, so set the mode explicitly.
@@ -230,16 +230,23 @@ func runBinary(t *testing.T, bin string, args ...string) (string, string, error)
 	return stdout.String(), stderr.String(), err
 }
 
-func TestDirectGetExecutableOwnerInfo(t *testing.T) {
-	uid, perm, err := machutils.GetExecutableOwnerInfo()
+func TestDirectGetExecutableInfo(t *testing.T) {
+	uid, fi, err := machutils.GetExecutableInfo()
 	if err != nil {
-		t.Fatalf("GetExecutableOwnerInfo failed: %v", err)
+		t.Fatalf("GetExecutableInfo failed: %v", err)
 	}
 	// The test binary was built by, and so is owned by, whoever is running
 	// the tests.
 	if got, want := uid, uint32(os.Getuid()); got != want {
 		t.Errorf("got UID %d, want %d", got, want)
 	}
+	if fi == nil {
+		t.Fatal("got nil FileInfo")
+	}
+	if fi.IsDir() {
+		t.Errorf("expected executable file, got directory")
+	}
+	perm := fi.Mode().Perm()
 	// It is running, so it must at least be executable by its owner, and the
 	// permissions must be permission bits only.
 	if perm&0100 == 0 {
@@ -250,20 +257,20 @@ func TestDirectGetExecutableOwnerInfo(t *testing.T) {
 	}
 	// It reports properties of the executable file rather than anything that
 	// varies between calls.
-	againUID, againPerm, err := machutils.GetExecutableOwnerInfo()
+	againUID, againFI, err := machutils.GetExecutableInfo()
 	if err != nil {
-		t.Fatalf("GetExecutableOwnerInfo failed on the second call: %v", err)
+		t.Fatalf("GetExecutableInfo failed on the second call: %v", err)
 	}
-	if againUID != uid || againPerm != perm {
-		t.Errorf("got %d/%v on the second call, want %d/%v", againUID, againPerm, uid, perm)
+	if againUID != uid || againFI.Mode() != fi.Mode() {
+		t.Errorf("got %d/%v on the second call, want %d/%v", againUID, againFI.Mode(), uid, fi.Mode())
 	}
 }
 
-// TestSubprocessGetExecutableOwnerInfo verifies that a process reports the
+// TestSubprocessGetExecutableInfo verifies that a process reports the
 // owner and permissions of its own executable: the subprocess discovers its
 // path for itself, while the test stats the binary it launched, so the two are
 // arrived at independently.
-func TestSubprocessGetExecutableOwnerInfo(t *testing.T) {
+func TestSubprocessGetExecutableInfo(t *testing.T) {
 	stdout, stderr, err := runSubprocess(t, nil, "-exec-uid")
 	if err != nil {
 		t.Fatalf("subprocess failed: %v (stderr: %s)", err, stderr)
@@ -293,10 +300,10 @@ func TestSubprocessGetExecutableOwnerInfo(t *testing.T) {
 	}
 }
 
-// TestSubprocessGetExecutableOwnerInfoDeleted verifies that an executable which
+// TestSubprocessGetExecutableInfoDeleted verifies that an executable which
 // no longer exists is reported as an error rather than as a UID of zero, which
 // would read as root.
-func TestSubprocessGetExecutableOwnerInfoDeleted(t *testing.T) {
+func TestSubprocessGetExecutableInfoDeleted(t *testing.T) {
 	clone := cloneTestBinary(t, 0700)
 	stdout, stderr, err := runBinary(t, clone, "-exec-uid", "-delete-self")
 	if err == nil {
@@ -334,6 +341,9 @@ func TestEnsureParentProcessSafe(t *testing.T) {
 		{"group executable", 0710, "group or world executable"},
 		{"world executable", 0701, "group or world executable"},
 		{"world readable and executable", 0755, "group or world executable"},
+		{"group writable", 0720, "group or world writable"},
+		{"world writable", 0702, "group or world writable"},
+		{"group and world writable", 0777, "group or world writable"},
 	} {
 		clone := cloneTestBinary(t, tc.perm)
 		stdout, stderr, err := runBinary(t, clone, "-ensure-safe")
@@ -363,5 +373,33 @@ func TestEnsureParentProcessSafe(t *testing.T) {
 		if !strings.Contains(stderr, tc.want) {
 			t.Errorf("%v: got stderr %q, want it to contain %q", tc.name, stderr, tc.want)
 		}
+	}
+}
+
+// TestEnsureParentProcessSafeOrphaned verifies that an orphaned process
+// (reparented to launchd) is rejected by EnsureParentProcessSafe.
+func TestEnsureParentProcessSafeOrphaned(t *testing.T) {
+	out := filepath.Join(t.TempDir(), "orphan-safe-result")
+
+	if _, stderr, err := runSubprocess(t, nil, "-orphan-safe", out); err != nil {
+		t.Fatalf("subprocess failed: %v (stderr: %s)", err, stderr)
+	}
+
+	var data []byte
+	deadline := time.Now().Add(30 * time.Second)
+	for {
+		var err error
+		if data, err = os.ReadFile(out); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("the orphaned process did not report within the deadline")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	result := strings.TrimSpace(string(data))
+	if !strings.Contains(result, "process has been orphaned") {
+		t.Errorf("got %q, want it to report that the process has been orphaned", result)
 	}
 }

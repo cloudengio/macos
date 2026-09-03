@@ -4,103 +4,86 @@
 
 //go:build darwin
 
+// Package machutils provides low level utilities for interacting with the macOS
+// kernel.
 package machutils
-
-/*
-#include <sys/types.h>
-#include <sys/sysctl.h>
-#include <unistd.h>
-#include <errno.h>
-
-// Helper function to safely fetch the real UID of a specific PID via sysctl
-int64_t get_process_ruid(pid_t pid) {
-    struct kinfo_proc info;
-    size_t length = sizeof(info);
-
-    // Define the Management Information Base (MIB) query path
-    int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_PID, pid };
-
-    // Call the macOS kernel sysctl interface
-    if (sysctl(mib, 4, &info, &length, NULL, 0) < 0) {
-        return -1; // System call failed (e.g., process exited or permission denied)
-    }
-
-    if (length == 0) {
-        return -1; // No process data returned
-    }
-
-    // kp_eproc.e_pcred.p_ruid holds the immutable REAL user identity assigned at login,
-    // protecting it against tricks involving temporary privilege escalations (SUID).
-    return info.kp_eproc.e_pcred.p_ruid;
-}
-*/
-import "C"
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 // ErrFailedToRetrieveParentUID is returned when the parent process UID
 // cannot be retrieved from the kernel.
 var ErrFailedToRetrieveParentUID = errors.New("failed to retrieve parent process UID from the kernel")
 
-// GetParentUID handles the safe extraction of the caller's User ID context.
+// GetParentUID retrieves the real user ID (RUID) of the parent process.
 func GetParentUID() (uint32, error) {
 	// 1. Get the parent's Process ID directly from the running Go environment
 	ppid := os.Getppid()
 
-	// 2. Pass the PID to our C layer to query the kernel
-	cUID := int64(C.get_process_ruid(C.pid_t(ppid)))
-
-	// 3. Evaluate results (-1 indicates a failure to read the process credentials)
-	if cUID == int64(-1) {
-		return 0, ErrFailedToRetrieveParentUID
+	// 2. Query the kernel sysctl interface for the process info
+	kproc, err := unix.SysctlKinfoProc("kern.proc.pid", ppid)
+	if err != nil {
+		return 0, fmt.Errorf("%w: %v", ErrFailedToRetrieveParentUID, err)
 	}
 
-	return uint32(cUID), nil
+	return kproc.Eproc.Pcred.P_ruid, nil
 }
 
-// GetExecutableOwnerInfo retrieves the UID and permissions
-// of the currently running executable.
-func GetExecutableOwnerInfo() (uint32, fs.FileMode, error) {
+// GetExecutableInfo retrieves the executable path, its owner UID,
+// and the file info of the executable.
+func GetExecutableInfo() (uint32, os.FileInfo, error) {
 	execPath, err := os.Executable()
 	if err != nil {
-		return 0, 0, err
+		return 0, nil, err
 	}
 
 	fileInfo, err := os.Stat(execPath)
 	if err != nil {
-		return 0, 0, err
+		return 0, nil, err
 	}
 
 	systat, ok := fileInfo.Sys().(*syscall.Stat_t)
 	if !ok {
-		return 0, 0, errors.New("failed to retrieve file stat information")
+		return 0, nil, errors.New("failed to retrieve file stat information")
 	}
 
-	return systat.Uid, fileInfo.Mode().Perm(), nil
+	return systat.Uid, fileInfo, nil
 }
 
 // EnsureParentProcessSafe checks that:
 //  1. the parent process UID matches the executable's UID
 //  2. the current process UID matches that of the parent
-//  3. the executable is not world-executable
+//  3. the executable is not group- or world-writable or executable
+//  4. the current process is not running with elevated privileges (SUID/SGID)
+//  5. the process has not been orphaned (reparented to launchd)
 //
-// 1 ensures that the only the executable's owner can launch it,
-// 2 ensures that the current process is not running with elevated
-// privileges, and 3 ensures that the executable can only be run by
-// its owner and not by any other user or group on the system.
+// 1 ensures that only the executable's owner can launch it,
+// 2 ensures that the current process UID matches that of the executable owner,
+// 3 ensures that the executable cannot be modified or run by other users,
+// 4 ensures that the process has not escalated privileges, and
+// 5 ensures that parent identity cannot be spoofed via orphaning.
 func EnsureParentProcessSafe() error {
+	if os.Getppid() == 1 {
+		return errors.New("process has been orphaned; parent identity cannot be verified")
+	}
 	parentUID, err := GetParentUID()
 	if err != nil {
 		return err
 	}
-	execUID, perms, err := GetExecutableOwnerInfo()
+	execUID, fileInfo, err := GetExecutableInfo()
 	if err != nil {
 		return err
+	}
+	perms := fileInfo.Mode().Perm()
+	if perms&022 != 0 {
+		return errors.New("executable is group or world writable; potential privilege escalation detected")
 	}
 	if perms&011 != 0 {
 		return errors.New("executable is group or world executable; potential privilege escalation detected")
@@ -111,6 +94,13 @@ func EnsureParentProcessSafe() error {
 	currentUID := uint32(os.Getuid())
 	if currentUID != execUID {
 		return errors.New("current process UID does not match executable UID; potential privilege escalation detected")
+	}
+	if uint32(os.Geteuid()) != currentUID || os.Getegid() != os.Getgid() {
+		return errors.New("process is running with elevated privileges; potential privilege escalation detected")
+	}
+
+	if fileInfo.Mode()&(fs.ModeSetuid|fs.ModeSetgid) != 0 {
+		return errors.New("executable has setuid or setgid bits set; potential privilege escalation detected")
 	}
 	return nil
 }
