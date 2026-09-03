@@ -224,16 +224,16 @@ This implements the interaction with the actual OS keychain.
 
 
 ```go
-func (ps *Server) ReadRequest(ctx context.Context, rd io.Reader) (*Config, plugins.Request, *plugins.Response)
+func (ps *Server) ReadRequest(ctx context.Context, msgr *jsonmsgs.Messager) (*Config, plugins.Request, *plugins.Response)
 ```
-ReadRequest reads a plugin request from the provided reader and returns the
-request. If any errors are encountered then the returned response represents
-an error and should be returned to the plugin caller. Otherwise the response
-is nil.
+ReadRequest reads a plugin request from the provided messager and returns
+the request. If any errors are encountered then the returned response
+represents an error and should be returned to the plugin caller. Otherwise
+the response is nil.
 
 
 ```go
-func (ps *Server) SendResponse(ctx context.Context, w io.Writer, resp *plugins.Response)
+func (ps *Server) SendResponse(_ context.Context, msgr *jsonmsgs.Messager, resp *plugins.Response)
 ```
 SendResponse sends the provided response to the plugin caller.
 

@@ -8,7 +8,6 @@ package plugin
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +18,7 @@ import (
 	"path/filepath"
 
 	"cloudeng.io/cmdutil/flags"
+	"cloudeng.io/encoding/json/jsonmsgs"
 	"cloudeng.io/logging/ctxlog"
 	"cloudeng.io/macos/keychain"
 	"cloudeng.io/macos/macosutils"
@@ -312,20 +312,20 @@ func NewServer(opts ...Option) *Server {
 	}
 }
 
-// ReadRequest reads a plugin request from the provided reader and returns
+// ReadRequest reads a plugin request from the provided messager and returns
 // the request. If any errors are encountered then the returned response represents
 // an error and should be returned to the plugin caller. Otherwise the response is nil.
-func (ps *Server) ReadRequest(ctx context.Context, rd io.Reader) (*Config, plugins.Request, *plugins.Response) {
-	var req plugins.Request
-	dec := json.NewDecoder(rd)
-	if err := dec.Decode(&req); err != nil {
+func (ps *Server) ReadRequest(ctx context.Context, msgr *jsonmsgs.Messager) (*Config, plugins.Request, *plugins.Response) {
+	req, err := plugins.ReadRequest(msgr)
+	if err != nil {
 		return nil, plugins.Request{}, errorResponse(ctx, req, "failed to decode request", err.Error())
 	}
 	if verr := req.CheckVersion(); verr != nil {
-		return nil, plugins.Request{}, errorResponse(ctx, req, verr.Message, verr.Detail)
+		ctxlog.Error(ctx, "plugin error", "id", req.ID, "message", verr.Message, "error", verr.Detail)
+		return nil, plugins.Request{}, req.NewResponse(nil, verr)
 	}
 	var cfg Config
-	if err := json.Unmarshal(req.PluginSpecific, &cfg); err != nil {
+	if err := req.UnmarshalPluginSpecific(&cfg); err != nil {
 		return nil, plugins.Request{}, errorResponse(ctx, req, "failed to unmarshal plugin_specific", err.Error())
 	}
 	ps.opts.logger.Info("new request",
@@ -387,17 +387,9 @@ func (ps *Server) HandleRequest(ctx context.Context, cfg *Config, req plugins.Re
 }
 
 // SendResponse sends the provided response to the plugin caller.
-func (ps *Server) SendResponse(ctx context.Context, w io.Writer, resp *plugins.Response) {
+func (ps *Server) SendResponse(_ context.Context, msgr *jsonmsgs.Messager, resp *plugins.Response) {
 	resp.PluginSpecific = nil
-	output, err := json.Marshal(resp)
-	if err != nil {
-		resp.Contents = nil
-		ps.opts.logger.Error("failed to marshal response", "error", err, "response", resp)
-		errResp := errorResponse(ctx, plugins.Request{}, "failed to marshal response", err.Error())
-		output, _ = json.Marshal(errResp)
-	}
-	_, err = w.Write(output)
-	if err != nil {
+	if err := plugins.WriteResponse(msgr, *resp); err != nil {
 		ps.opts.logger.Error("failed to write response", "error", err)
 		return
 	}

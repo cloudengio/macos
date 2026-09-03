@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"io"
 	iofs "io/fs"
 	"log/slog"
 	"os"
@@ -21,6 +22,7 @@ import (
 	"testing"
 
 	"cloudeng.io/cmdutil/flags"
+	"cloudeng.io/encoding/json/jsonmsgs"
 	"cloudeng.io/macos/keychain"
 	"cloudeng.io/macos/keychain/plugin"
 	"cloudeng.io/security/keys/keychain/plugins"
@@ -180,33 +182,28 @@ func TestPluginReadRequest(t *testing.T) {
 	}
 
 	req.ID = 123
-	data, err := json.Marshal(req)
-	if err != nil {
-		t.Fatalf("failed to marshal request: %v", err)
+	var inBuf bytes.Buffer
+	msgr := jsonmsgs.NewMessager(io.NopCloser(&inBuf), &inBuf)
+	if err := plugins.WriteRequest(msgr, req); err != nil {
+		t.Fatalf("failed to write request: %v", err)
 	}
 
-	rCfg, rReq, resp := ps.ReadRequest(ctx, bytes.NewReader(data))
+	rCfg, rReq, resp := ps.ReadRequest(ctx, msgr)
 	if resp != nil {
 		t.Fatalf("expected nil response, got %v (error: %v)", resp, resp.Error)
 	}
 
-	// Normalize expected request by round-tripping through JSON
-	var expectedReq plugins.Request
-	if err := json.Unmarshal(data, &expectedReq); err != nil {
-		t.Fatalf("failed to unmarshal expected request: %v", err)
-	}
-
-	if got, want := rReq.ID, expectedReq.ID; got != want {
+	if got, want := rReq.ID, req.ID; got != want {
 		t.Errorf("got request ID %v, want %v", got, want)
 	}
-	if got, want := rReq.Keyname, expectedReq.Keyname; got != want {
+	if got, want := rReq.Keyname, req.Keyname; got != want {
 		t.Errorf("got request Keyname %v, want %v", got, want)
 	}
-	if got, want := rReq.Write, expectedReq.Write; got != want {
+	if got, want := rReq.Write, req.Write; got != want {
 		t.Errorf("got request Write %v, want %v", got, want)
 	}
-	if !bytes.Equal(rReq.Contents, expectedReq.Contents) {
-		t.Errorf("got request Contents %v, want %v", rReq.Contents, expectedReq.Contents)
+	if !bytes.Equal(rReq.Contents, req.Contents) {
+		t.Errorf("got request Contents %v, want %v", rReq.Contents, req.Contents)
 	}
 
 	// Normalize expected config by round-tripping through JSON to account for any
@@ -253,11 +250,12 @@ func TestPluginReadRequestVersion(t *testing.T) {
 			t.Fatalf("NewRequest failed: %v", err)
 		}
 		req.Version = version
-		data, err := json.Marshal(req)
-		if err != nil {
-			t.Fatalf("failed to marshal request: %v", err)
+		var inBuf bytes.Buffer
+		msgr := jsonmsgs.NewMessager(io.NopCloser(&inBuf), &inBuf)
+		if err := plugins.WriteRequest(msgr, req); err != nil {
+			t.Fatalf("failed to write request: %v", err)
 		}
-		return ps.ReadRequest(ctx, bytes.NewReader(data))
+		return ps.ReadRequest(ctx, msgr)
 	}
 
 	// A request newer than this plugin understands must be rejected rather
@@ -308,8 +306,9 @@ func TestSendResponse(t *testing.T) {
 		},
 	}
 
-	var output strings.Builder
-	ps.SendResponse(ctx, &output, &resp)
+	var outBuf bytes.Buffer
+	msgr := jsonmsgs.NewMessager(io.NopCloser(&outBuf), &outBuf)
+	ps.SendResponse(ctx, msgr, &resp)
 	logged := logBuf.String()
 	if !strings.Contains(logged, "sent response") {
 		t.Errorf("expected log to contain 'sent response', got %q", logged)
@@ -317,7 +316,19 @@ func TestSendResponse(t *testing.T) {
 	if !strings.Contains(logged, "id=123") {
 		t.Errorf("expected log to contain 'id=123', got %q", logged)
 	}
-
+	gotResp, err := plugins.ReadResponse(msgr)
+	if err != nil {
+		t.Fatalf("ReadResponse failed: %v", err)
+	}
+	if gotResp.ID != resp.ID {
+		t.Errorf("got ID %v, want %v", gotResp.ID, resp.ID)
+	}
+	if !bytes.Equal(gotResp.Contents, resp.Contents) {
+		t.Errorf("got Contents %q, want %q", gotResp.Contents, resp.Contents)
+	}
+	if gotResp.Error == nil || gotResp.Error.Message != resp.Error.Message || gotResp.Error.Detail != resp.Error.Detail {
+		t.Errorf("got Error %+v, want %+v", gotResp.Error, resp.Error)
+	}
 }
 
 func TestReadFlags(t *testing.T) {
