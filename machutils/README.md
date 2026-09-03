@@ -40,8 +40,7 @@ cannot be spoofed via orphaning.
 ```go
 func GetExecutableInfo() (uint32, os.FileInfo, error)
 ```
-GetExecutableInfo retrieves the executable path, its owner UID, and the file
-info of the executable.
+GetExecutableInfo retrieves the owner UID and file info of the executable.
 
 ### Func GetParentUID
 ```go

@@ -36,8 +36,7 @@ func GetParentUID() (uint32, error) {
 	return kproc.Eproc.Pcred.P_ruid, nil
 }
 
-// GetExecutableInfo retrieves the executable path, its owner UID,
-// and the file info of the executable.
+// GetExecutableInfo retrieves the owner UID and file info of the executable.
 func GetExecutableInfo() (uint32, os.FileInfo, error) {
 	execPath, err := os.Executable()
 	if err != nil {

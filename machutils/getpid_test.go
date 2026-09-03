@@ -344,6 +344,8 @@ func TestEnsureParentProcessSafe(t *testing.T) {
 		{"group writable", 0720, "group or world writable"},
 		{"world writable", 0702, "group or world writable"},
 		{"group and world writable", 0777, "group or world writable"},
+		{"setuid", 0700 | fs.ModeSetuid, "setuid or setgid"},
+		{"setgid", 0700 | fs.ModeSetgid, "setuid or setgid"},
 	} {
 		clone := cloneTestBinary(t, tc.perm)
 		stdout, stderr, err := runBinary(t, clone, "-ensure-safe")
