@@ -8,28 +8,36 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 
+	"cloudeng.io/encoding/json/jsonmsgs"
 	"cloudeng.io/logging/ctxlog"
 	"cloudeng.io/macos/keychain"
 	"cloudeng.io/macos/keychain/plugin"
+	"cloudeng.io/macos/machutils"
 )
 
 func main() {
+	if err := machutils.EnsureParentProcessSafe(); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
 	if len(os.Args) > 1 {
 		possiblyHandleCommandLine(os.Args[1:])
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, nil))
 	ctx := ctxlog.WithLogger(context.Background(), logger)
+	msgr := jsonmsgs.NewMessager(io.NopCloser(os.Stdin), os.Stdout)
 	srv := plugin.NewServer(plugin.WithLogger(logger))
-	cfg, req, resp := srv.ReadRequest(ctx, os.Stdin)
+	cfg, req, resp := srv.ReadRequest(ctx, msgr)
 	if resp != nil {
-		srv.SendResponse(ctx, os.Stdout, resp)
+		srv.SendResponse(ctx, msgr, resp)
 		return
 	}
 	resp = srv.HandleRequest(ctx, cfg, req)
-	srv.SendResponse(ctx, os.Stdout, resp)
+	srv.SendResponse(ctx, msgr, resp)
 }
 
 const usage = `Usage: [--help|delete keychain-type account service|read keychain-type account service]
