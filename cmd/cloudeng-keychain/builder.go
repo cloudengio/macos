@@ -33,10 +33,12 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/fs"
 	"maps"
 	"os"
 	"os/exec"
 
+	"cloudeng.io/cmdutil/cmdtypes"
 	"cloudeng.io/macos/buildtools"
 	"cloudeng.io/macos/keychain/plugin"
 	"gopkg.in/yaml.v3"
@@ -57,10 +59,27 @@ const (
 // nested plugin bundle needs.
 type bundleConfig struct {
 	buildtools.SigningConfig `yaml:",inline"`
-	Info                     map[string]any          `yaml:"info.plist"`
-	ProvisioningProfile      string                  `yaml:"profile"`
-	Notarize                 bool                    `yaml:"notarize"`
-	Notary                   buildtools.NotaryConfig `yaml:"notary"`
+	Permissions              buildtools.PermissionsConfig `yaml:"permissions,omitempty"`
+	ExecutablePermissions    cmdtypes.Permissions         `yaml:"executable_permissions,omitempty"`
+	MacOSDirPermissions      cmdtypes.Permissions         `yaml:"macos_dir_permissions,omitempty"`
+	Info                     map[string]any               `yaml:"info.plist"`
+	ProvisioningProfile      string                       `yaml:"profile"`
+	Notarize                 bool                         `yaml:"notarize"`
+	Notary                   buildtools.NotaryConfig      `yaml:"notary"`
+}
+
+func (c bundleConfig) executableMode() fs.FileMode {
+	if c.Permissions.Executable != 0 {
+		return c.Permissions.Executable.FileMode()
+	}
+	return c.ExecutablePermissions.FileMode()
+}
+
+func (c bundleConfig) macosDirMode() fs.FileMode {
+	if c.Permissions.MacOSDir != 0 {
+		return c.Permissions.MacOSDir.FileMode()
+	}
+	return c.MacOSDirPermissions.FileMode()
 }
 
 func main() {
@@ -128,6 +147,12 @@ func buildBundle(ctx context.Context, out string, cfg bundleConfig, outerInfo, i
 	runner.AddSteps(inner.WriteInfoPlist(), inner.CopyExecutable(plugin))
 	if cfg.ProvisioningProfile != "" {
 		runner.AddSteps(inner.InstallProvisioningProfile(cfg.ProvisioningProfile))
+	}
+	if mode := cfg.executableMode(); mode != 0 {
+		runner.AddSteps(inner.SetExecutablePermissions(plugin, mode))
+	}
+	if mode := cfg.macosDirMode(); mode != 0 {
+		runner.AddSteps(inner.SetMacOSDirPermissions(mode))
 	}
 
 	// Outer client app.

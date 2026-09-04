@@ -7,6 +7,7 @@ package buildtools_test
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"testing"
 
 	"cloudeng.io/macos/buildtools"
@@ -152,5 +153,89 @@ func TestCommonFlagsStepRunnerOptions(t *testing.T) {
 				t.Errorf("StepRunnerOptions() returned %d options, want %d", got, tc.wantCount)
 			}
 		})
+	}
+}
+
+func TestPermissionsConfigYAML(t *testing.T) {
+	cases := []struct {
+		yaml        string
+		wantExec    fs.FileMode
+		wantDirMode fs.FileMode
+	}{
+		{
+			yaml: `
+executable: 0700
+macos_dir: 0755
+`,
+			wantExec:    0700,
+			wantDirMode: 0755,
+		},
+		{
+			yaml: `
+executable_permissions: "rwx------"
+macos_dir_permissions: "rwxr-xr-x"
+`,
+			wantExec:    0700,
+			wantDirMode: 0755,
+		},
+		{
+			yaml: `
+executable: "u=rwx,go="
+macos_dir: "u=rwx,go=rx"
+`,
+			wantExec:    0700,
+			wantDirMode: 0755,
+		},
+	}
+
+	for _, tc := range cases {
+		var cfg buildtools.PermissionsConfig
+		if err := yaml.Unmarshal([]byte(tc.yaml), &cfg); err != nil {
+			t.Errorf("yaml.Unmarshal failed for %q: %v", tc.yaml, err)
+			continue
+		}
+		if got := cfg.ExecutableMode(); got != tc.wantExec {
+			t.Errorf("ExecutableMode() = %04o, want %04o", got, tc.wantExec)
+		}
+		if got := cfg.MacOSDirMode(); got != tc.wantDirMode {
+			t.Errorf("MacOSDirMode() = %04o, want %04o", got, tc.wantDirMode)
+		}
+	}
+}
+
+func TestConfigPermissionsYAML(t *testing.T) {
+	// 1. Nested permissions block
+	yamlNested := `
+bundle: ./testing.app
+permissions:
+  executable: 0700
+  macos_dir: 0755
+`
+	var cfg1 buildtools.Config
+	if err := yaml.Unmarshal([]byte(yamlNested), &cfg1); err != nil {
+		t.Fatalf("Unmarshal nested failed: %v", err)
+	}
+	if got, want := cfg1.ExecutableMode(), fs.FileMode(0700); got != want {
+		t.Errorf("cfg1.ExecutableMode() = %04o, want %04o", got, want)
+	}
+	if got, want := cfg1.MacOSDirMode(), fs.FileMode(0755); got != want {
+		t.Errorf("cfg1.MacOSDirMode() = %04o, want %04o", got, want)
+	}
+
+	// 2. Top-level permissions
+	yamlTopLevel := `
+bundle: ./testing.app
+executable_permissions: "rwx------"
+macos_dir_permissions: "rwxr-xr-x"
+`
+	var cfg2 buildtools.Config
+	if err := yaml.Unmarshal([]byte(yamlTopLevel), &cfg2); err != nil {
+		t.Fatalf("Unmarshal top-level failed: %v", err)
+	}
+	if got, want := cfg2.ExecutableMode(), fs.FileMode(0700); got != want {
+		t.Errorf("cfg2.ExecutableMode() = %04o, want %04o", got, want)
+	}
+	if got, want := cfg2.MacOSDirMode(), fs.FileMode(0755); got != want {
+		t.Errorf("cfg2.MacOSDirMode() = %04o, want %04o", got, want)
 	}
 }

@@ -6,6 +6,7 @@ package buildtools_test
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -132,5 +133,60 @@ func TestWriteInfoPlistGitBuild(t *testing.T) {
 		if _, err := step.Run(ctx, runner); err != nil {
 			t.Fatalf("git step %d failed: %v", i, err)
 		}
+	}
+}
+
+func TestAppBundlePermissions(t *testing.T) {
+	tempDir := t.TempDir()
+	var info buildtools.InfoPlist
+	if err := yaml.Unmarshal([]byte(plistYAML), &info); err != nil {
+		t.Fatalf("failed to unmarshal info plist: %v", err)
+	}
+
+	bundle := buildtools.AppBundle{
+		Path: filepath.Join(tempDir, "TestApp.app"),
+		Info: info,
+	}
+
+	runner := buildtools.NewCommandRunner()
+	ctx := context.Background()
+
+	for _, step := range bundle.Create() {
+		if _, err := step.Run(ctx, runner); err != nil {
+			t.Fatalf("bundle create failed: %v", err)
+		}
+	}
+
+	// Create a dummy executable file
+	exePath := filepath.Join(bundle.Path, "Contents", "MacOS", info.CFBundleExecutable)
+	if err := os.WriteFile(exePath, []byte("#!/bin/sh\necho ok\n"), 0600); err != nil {
+		t.Fatalf("failed to create dummy executable: %v", err)
+	}
+
+	// Set executable permissions to 0700
+	stepExe := bundle.SetExecutablePermissions("", 0700)
+	if _, err := stepExe.Run(ctx, runner); err != nil {
+		t.Fatalf("SetExecutablePermissions failed: %v", err)
+	}
+	fi, err := os.Stat(exePath)
+	if err != nil {
+		t.Fatalf("stat executable failed: %v", err)
+	}
+	if got, want := fi.Mode().Perm(), fs.FileMode(0700); got != want {
+		t.Errorf("executable permissions = %04o, want %04o", got, want)
+	}
+
+	// Set MacOS dir permissions to 0750
+	dirPath := filepath.Join(bundle.Path, "Contents", "MacOS")
+	stepDir := bundle.SetMacOSDirPermissions(0750)
+	if _, err := stepDir.Run(ctx, runner); err != nil {
+		t.Fatalf("SetMacOSDirPermissions failed: %v", err)
+	}
+	dirFi, err := os.Stat(dirPath)
+	if err != nil {
+		t.Fatalf("stat MacOS dir failed: %v", err)
+	}
+	if got, want := dirFi.Mode().Perm(), fs.FileMode(0750); got != want {
+		t.Errorf("MacOS dir permissions = %04o, want %04o", got, want)
 	}
 }

@@ -81,6 +81,14 @@ func Copy(oldname, newname string) Step {
 	})
 }
 
+// Perms returns a Step that changes the permissions of a file or directory
+// using chmod.
+func Perms(path string, perm os.FileMode) Step {
+	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+		return cmdRunner.Run(ctx, "chmod", fmt.Sprintf("%o", perm), path)
+	})
+}
+
 // CopyDir returns a Step that copies a directory recursively using cp -r.
 func CopyDir(srcDir, dstDir string) Step {
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {

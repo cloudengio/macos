@@ -72,6 +72,13 @@ func (b bundle) createAndSign(ctx context.Context, binary string, notarize bool)
 	b.stepRunner.AddSteps(b.ap.WriteInfoPlist(),
 		b.ap.CopyExecutable(binary))
 
+	if mode := b.cfg.executableMode(); mode != 0 {
+		b.stepRunner.AddSteps(b.ap.SetExecutablePermissions(binary, mode))
+	}
+	if mode := b.cfg.macosDirMode(); mode != 0 {
+		b.stepRunner.AddSteps(b.ap.SetMacOSDirPermissions(mode))
+	}
+
 	cleanup, err := b.handleIcons()
 	if err != nil {
 		return fmt.Errorf("error processing icons: %v", err)

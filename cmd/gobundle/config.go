@@ -6,10 +6,12 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strconv"
 
+	"cloudeng.io/cmdutil/cmdtypes"
 	"cloudeng.io/macos/buildtools"
 	"gopkg.in/yaml.v3"
 )
@@ -24,14 +26,31 @@ const (
 
 type config struct {
 	buildtools.SigningConfig `yaml:",inline"`
-	Path                     string               `yaml:"bundle"`
-	Info                     buildtools.InfoPlist `yaml:"info.plist"`
-	ProvisioningProfile      string               `yaml:"profile"`
-	Icon                     string               `yaml:"icon"`
+	Permissions              buildtools.PermissionsConfig `yaml:"permissions,omitempty"`
+	ExecutablePermissions    cmdtypes.Permissions         `yaml:"executable_permissions,omitempty"`
+	MacOSDirPermissions      cmdtypes.Permissions         `yaml:"macos_dir_permissions,omitempty"`
+	Path                     string                       `yaml:"bundle"`
+	Info                     buildtools.InfoPlist         `yaml:"info.plist"`
+	ProvisioningProfile      string                       `yaml:"profile"`
+	Icon                     string                       `yaml:"icon"`
 	// Notarize requests notarization of the signed bundle. It requires a signing
 	// identity and Notary credentials.
 	Notarize bool                    `yaml:"notarize"`
 	Notary   buildtools.NotaryConfig `yaml:"notary"`
+}
+
+func (c config) executableMode() fs.FileMode {
+	if c.Permissions.Executable != 0 {
+		return c.Permissions.Executable.FileMode()
+	}
+	return c.ExecutablePermissions.FileMode()
+}
+
+func (c config) macosDirMode() fs.FileMode {
+	if c.Permissions.MacOSDir != 0 {
+		return c.Permissions.MacOSDir.FileMode()
+	}
+	return c.MacOSDirPermissions.FileMode()
 }
 
 func readconfig(file string) (map[string]any, error) {
