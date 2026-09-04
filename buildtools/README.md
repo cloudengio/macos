@@ -280,6 +280,22 @@ bundle.
 
 
 ```go
+func (b AppBundle) SetExecutablePermissions(src string, perms fs.FileMode) Step
+```
+SetExecutablePermissions returns a Step that sets the permissions of
+the executable referenced in the Info.plist within the app bundle. If
+Info.CFBundleExecutable is not set and src is provided, filepath.Base(src)
+is used. If both are empty, it returns an ErrorStep.
+
+
+```go
+func (b AppBundle) SetMacOSDirPermissions(perms fs.FileMode) Step
+```
+SetMacOSDirPermissions returns a Step that sets the permissions of the MacOS
+directory
+
+
+```go
 func (b AppBundle) Sign(signer Signer) Step
 ```
 
@@ -587,12 +603,32 @@ StepRunnerOptions returns options for the StepRunner based on the flags.
 ### Type Config
 ```go
 type Config struct {
-	AppBundle string        `yaml:"bundle"`
-	Signing   SigningConfig `yaml:"signing"`
+	AppBundle             string               `yaml:"bundle"`
+	Signing               SigningConfig        `yaml:"signing"`
+	Permissions           PermissionsConfig    `yaml:"permissions,omitempty"`
+	ExecutablePermissions cmdtypes.Permissions `yaml:"executable_permissions,omitempty"`
+	MacOSDirPermissions   cmdtypes.Permissions `yaml:"macos_dir_permissions,omitempty"`
 }
 ```
 Config represents common configuration options that can be read from a yaml
 config file.
+
+### Methods
+
+```go
+func (c Config) ExecutableMode() fs.FileMode
+```
+ExecutableMode returns the configured executable permissions, checking both
+the nested permissions section and top-level executable_permissions.
+
+
+```go
+func (c Config) MacOSDirMode() fs.FileMode
+```
+MacOSDirMode returns the configured MacOS directory permissions, checking
+both the nested permissions section and top-level macos_dir_permissions.
+
+
 
 
 ### Type Entitlements
@@ -1174,6 +1210,38 @@ func (e *PerFileEntitlements) UnmarshalYAML(node *yaml.Node) error
 
 
 
+### Type PermissionsConfig
+```go
+type PermissionsConfig struct {
+	Executable cmdtypes.Permissions `yaml:"executable,omitempty"`
+	MacOSDir   cmdtypes.Permissions `yaml:"macos_dir,omitempty"`
+}
+```
+PermissionsConfig represents permissions configuration for bundle contents.
+
+### Methods
+
+```go
+func (p PermissionsConfig) ExecutableMode() fs.FileMode
+```
+ExecutableMode returns the executable file mode, or 0 if not configured.
+
+
+```go
+func (p PermissionsConfig) MacOSDirMode() fs.FileMode
+```
+MacOSDirMode returns the MacOS directory file mode, or 0 if not configured.
+
+
+```go
+func (p *PermissionsConfig) UnmarshalYAML(node *yaml.Node) error
+```
+UnmarshalYAML implements yaml.Unmarshaler to accept both "executable" /
+"macos_dir" and "executable_permissions" / "macos_dir_permissions".
+
+
+
+
 ### Type PkgBuild
 ```go
 type PkgBuild struct {
@@ -1601,6 +1669,14 @@ using mkdir -p.
 ```go
 func NoopStep(detail string) Step
 ```
+
+
+```go
+func Perms(path string, perm os.FileMode) Step
+```
+Perms returns a Step that changes the permissions of a file or directory
+using chmod. Only permission, sticky, setuid, and setgid bits are passed to
+chmod; file type bits (such as os.ModeDir) are masked out.
 
 
 ```go

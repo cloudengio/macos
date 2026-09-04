@@ -81,6 +81,32 @@ func Copy(oldname, newname string) Step {
 	})
 }
 
+// chmodBits returns the traditional UNIX permission, setuid, setgid, and sticky
+// bits from perm formatted for chmod, masking out any file type bits (such as
+// os.ModeDir or os.ModeSymlink).
+func chmodBits(perm os.FileMode) uint32 {
+	v := uint32(perm & 07777)
+	if perm&os.ModeSetuid != 0 {
+		v |= 04000
+	}
+	if perm&os.ModeSetgid != 0 {
+		v |= 02000
+	}
+	if perm&os.ModeSticky != 0 {
+		v |= 01000
+	}
+	return v
+}
+
+// Perms returns a Step that changes the permissions of a file or directory
+// using chmod. Only permission, sticky, setuid, and setgid bits are passed
+// to chmod; file type bits (such as os.ModeDir) are masked out.
+func Perms(path string, perm os.FileMode) Step {
+	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {
+		return cmdRunner.Run(ctx, "chmod", fmt.Sprintf("%o", chmodBits(perm)), path)
+	})
+}
+
 // CopyDir returns a Step that copies a directory recursively using cp -r.
 func CopyDir(srcDir, dstDir string) Step {
 	return StepFunc(func(ctx context.Context, cmdRunner *CommandRunner) (StepResult, error) {

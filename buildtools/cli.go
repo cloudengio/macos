@@ -7,8 +7,10 @@ package buildtools
 import (
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 
+	"cloudeng.io/cmdutil/cmdtypes"
 	"cloudeng.io/cmdutil/flags"
 	"gopkg.in/yaml.v3"
 )
@@ -65,11 +67,73 @@ func (f CommonFlags) ParseFile(cfg any) error {
 	return yaml.Unmarshal(data, cfg)
 }
 
+// PermissionsConfig represents permissions configuration for bundle contents.
+type PermissionsConfig struct {
+	Executable cmdtypes.Permissions `yaml:"executable,omitempty"`
+	MacOSDir   cmdtypes.Permissions `yaml:"macos_dir,omitempty"`
+}
+
+// UnmarshalYAML implements yaml.Unmarshaler to accept both "executable" / "macos_dir"
+// and "executable_permissions" / "macos_dir_permissions".
+func (p *PermissionsConfig) UnmarshalYAML(node *yaml.Node) error {
+	var raw struct {
+		Executable            cmdtypes.Permissions `yaml:"executable"`
+		ExecutablePermissions cmdtypes.Permissions `yaml:"executable_permissions"`
+		MacOSDir              cmdtypes.Permissions `yaml:"macos_dir"`
+		MacOSDirPermissions   cmdtypes.Permissions `yaml:"macos_dir_permissions"`
+	}
+	if err := node.Decode(&raw); err != nil {
+		return err
+	}
+	if raw.Executable != 0 {
+		p.Executable = raw.Executable
+	} else {
+		p.Executable = raw.ExecutablePermissions
+	}
+	if raw.MacOSDir != 0 {
+		p.MacOSDir = raw.MacOSDir
+	} else {
+		p.MacOSDir = raw.MacOSDirPermissions
+	}
+	return nil
+}
+
+// ExecutableMode returns the executable file mode, or 0 if not configured.
+func (p PermissionsConfig) ExecutableMode() fs.FileMode {
+	return p.Executable.FileMode()
+}
+
+// MacOSDirMode returns the MacOS directory file mode, or 0 if not configured.
+func (p PermissionsConfig) MacOSDirMode() fs.FileMode {
+	return p.MacOSDir.FileMode()
+}
+
 // Config represents common configuration options
 // that can be read from a yaml config file.
 type Config struct {
-	AppBundle string        `yaml:"bundle"`
-	Signing   SigningConfig `yaml:"signing"`
+	AppBundle             string               `yaml:"bundle"`
+	Signing               SigningConfig        `yaml:"signing"`
+	Permissions           PermissionsConfig    `yaml:"permissions,omitempty"`
+	ExecutablePermissions cmdtypes.Permissions `yaml:"executable_permissions,omitempty"`
+	MacOSDirPermissions   cmdtypes.Permissions `yaml:"macos_dir_permissions,omitempty"`
+}
+
+// ExecutableMode returns the configured executable permissions, checking both
+// the nested permissions section and top-level executable_permissions.
+func (c Config) ExecutableMode() fs.FileMode {
+	if c.Permissions.Executable != 0 {
+		return c.Permissions.Executable.FileMode()
+	}
+	return c.ExecutablePermissions.FileMode()
+}
+
+// MacOSDirMode returns the configured MacOS directory permissions, checking both
+// the nested permissions section and top-level macos_dir_permissions.
+func (c Config) MacOSDirMode() fs.FileMode {
+	if c.Permissions.MacOSDir != 0 {
+		return c.Permissions.MacOSDir.FileMode()
+	}
+	return c.MacOSDirPermissions.FileMode()
 }
 
 // SigningConfig represents signing related configuration
