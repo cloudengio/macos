@@ -285,7 +285,7 @@ func (b AppBundle) SetExecutablePermissions(src string, perms fs.FileMode) Step
 SetExecutablePermissions returns a Step that sets the permissions of
 the executable referenced in the Info.plist within the app bundle. If
 Info.CFBundleExecutable is not set and src is provided, filepath.Base(src)
-is used.
+is used. If both are empty, it returns an ErrorStep.
 
 
 ```go
@@ -1675,7 +1675,8 @@ func NoopStep(detail string) Step
 func Perms(path string, perm os.FileMode) Step
 ```
 Perms returns a Step that changes the permissions of a file or directory
-using chmod.
+using chmod. Only permission, sticky, setuid, and setgid bits are passed to
+chmod; file type bits (such as os.ModeDir) are masked out.
 
 
 ```go

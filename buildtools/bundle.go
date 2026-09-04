@@ -94,11 +94,14 @@ func (b AppBundle) CopyExecutable(src string) Step {
 // SetExecutablePermissions returns a Step that sets the permissions of the
 // executable referenced in the Info.plist within the app bundle. If
 // Info.CFBundleExecutable is not set and src is provided, filepath.Base(src)
-// is used.
+// is used. If both are empty, it returns an ErrorStep.
 func (b AppBundle) SetExecutablePermissions(src string, perms fs.FileMode) Step {
 	exe := b.Info.CFBundleExecutable
 	if exe == "" && src != "" {
 		exe = filepath.Base(src)
+	}
+	if exe == "" {
+		return ErrorStep(fmt.Errorf("executable not specified in Info.plist or src"), "chmod", fmt.Sprintf("%o", chmodBits(perms)))
 	}
 	dst := filepath.Join(b.Path, "Contents", "MacOS", exe)
 	return Perms(dst, perms)

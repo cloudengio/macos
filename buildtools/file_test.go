@@ -85,3 +85,45 @@ func TestFileOperations(t *testing.T) {
 		t.Fatalf("output mismatch, got %q, want %q", result.Output(), "test output")
 	}
 }
+
+func TestPermsWithFileModeTypeBits(t *testing.T) {
+	tempDir := t.TempDir()
+	runner := buildtools.NewCommandRunner()
+	ctx := context.Background()
+
+	// 1. Directory with os.ModeDir set
+	testDir := filepath.Join(tempDir, "test_dir")
+	if err := os.Mkdir(testDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	dirFi, err := os.Stat(testDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dirFi.Mode()&os.ModeDir == 0 {
+		t.Fatal("expected ModeDir bit to be set")
+	}
+
+	// Passing FileMode with os.ModeDir set should not fail chmod
+	step := buildtools.Perms(testDir, dirFi.Mode())
+	if _, err := step.Run(ctx, runner); err != nil {
+		t.Fatalf("Perms with ModeDir failed: %v", err)
+	}
+
+	// 2. File with os.ModeDir bit explicitly added (simulating callers passing ModeDir)
+	testFile := filepath.Join(tempDir, "test_file.txt")
+	if err := os.WriteFile(testFile, []byte("content"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	stepFile := buildtools.Perms(testFile, os.ModeDir|0700)
+	if _, err := stepFile.Run(ctx, runner); err != nil {
+		t.Fatalf("Perms on file with ModeDir bit failed: %v", err)
+	}
+	fileFi, err := os.Stat(testFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := fileFi.Mode().Perm(), os.FileMode(0700); got != want {
+		t.Errorf("file perms = %04o, want %04o", got, want)
+	}
+}

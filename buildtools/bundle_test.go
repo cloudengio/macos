@@ -189,4 +189,50 @@ func TestAppBundlePermissions(t *testing.T) {
 	if got, want := dirFi.Mode().Perm(), fs.FileMode(0750); got != want {
 		t.Errorf("MacOS dir permissions = %04o, want %04o", got, want)
 	}
+
+	// Passing dirFi.Mode() directly (which includes os.ModeDir) should succeed
+	stepDirMode := bundle.SetMacOSDirPermissions(dirFi.Mode())
+	if _, err := stepDirMode.Run(ctx, runner); err != nil {
+		t.Fatalf("SetMacOSDirPermissions with ModeDir failed: %v", err)
+	}
+}
+
+func TestAppBundleSetExecutablePermissionsErrors(t *testing.T) {
+	tempDir := t.TempDir()
+	runner := buildtools.NewCommandRunner()
+	ctx := context.Background()
+
+	// Error case: both CFBundleExecutable and src are empty
+	emptyBundle := buildtools.AppBundle{
+		Path: filepath.Join(tempDir, "Empty.app"),
+	}
+	stepEmpty := emptyBundle.SetExecutablePermissions("", 0700)
+	if _, err := stepEmpty.Run(ctx, runner); err == nil {
+		t.Fatal("expected SetExecutablePermissions to fail when both CFBundleExecutable and src are empty")
+	}
+
+	// Fallback case: CFBundleExecutable is empty, but src is provided
+	bundle := buildtools.AppBundle{
+		Path: filepath.Join(tempDir, "Fallback.app"),
+	}
+	for _, step := range bundle.Create() {
+		if _, err := step.Run(ctx, runner); err != nil {
+			t.Fatalf("bundle create failed: %v", err)
+		}
+	}
+	customExe := filepath.Join(bundle.Path, "Contents", "MacOS", "custom_bin")
+	if err := os.WriteFile(customExe, []byte("#!/bin/sh\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	stepFallback := bundle.SetExecutablePermissions("/path/to/custom_bin", 0755)
+	if _, err := stepFallback.Run(ctx, runner); err != nil {
+		t.Fatalf("SetExecutablePermissions with src fallback failed: %v", err)
+	}
+	customFi, err := os.Stat(customExe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := customFi.Mode().Perm(), fs.FileMode(0755); got != want {
+		t.Errorf("custom_bin permissions = %04o, want %04o", got, want)
+	}
 }
